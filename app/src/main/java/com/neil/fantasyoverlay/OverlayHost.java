@@ -46,7 +46,6 @@ final class OverlayHost {
 
         web = new WebView(ctx);
         web.setBackgroundColor(Color.TRANSPARENT);
-        web.setLayerType(View.LAYER_TYPE_HARDWARE, null);
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);

@@ -32,22 +32,25 @@
   .p1 .burst i:nth-child(3){animation-delay:.24s;border-width:3px}
   @keyframes ring{0%{transform:scale(.2);opacity:.9}100%{transform:scale(5);opacity:0}}
 
+  /* Chrome lettering: the element draws the cheap 3D extrusion (solid text + text-shadow),
+     ::after draws the chrome gradient on top. No filter:drop-shadow, which is slow on TV GPUs. */
   .chrome{font-family:Anton,Impact,"Arial Narrow",sans-serif;font-weight:400;text-transform:uppercase;line-height:1;white-space:nowrap;
+    color:#4b5c7c;text-shadow:0 3px 0 #8395b2,0 6px 0 #4b5c7c,0 14px 22px rgba(0,0,0,.55)}
+  .chrome::after{content:attr(data-text);position:absolute;left:0;top:0;text-shadow:none;
     background:linear-gradient(180deg,#ffffff 0%,#f2f6fc 40%,#a9bad3 49%,#ffffff 53%,#d4dfef 80%,#9fb0ca 100%);
-    -webkit-background-clip:text;background-clip:text;color:transparent;
-    filter:drop-shadow(0 3px 0 #8395b2) drop-shadow(0 6px 0 #4b5c7c) drop-shadow(0 14px 22px rgba(0,0,0,.55))}
+    -webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
 
   #headline{position:absolute;left:960px;top:540px;font-size:300px;letter-spacing:4px;
     transform:translate(-50%,-50%) scale(2.6);opacity:0;
-    transition:transform .55s cubic-bezier(.17,.9,.3,1.15),opacity .35s,left .8s cubic-bezier(.6,0,.2,1),top .8s cubic-bezier(.6,0,.2,1)}
+    transition:transform .65s cubic-bezier(.2,.85,.25,1.08),opacity .35s;will-change:transform,opacity}
   .p1 #headline{transform:translate(-50%,-50%) scale(1);opacity:1}
-  .p2 #headline{top:150px;transform:translate(-50%,-50%) scale(.5);opacity:1}
-  .p3 #headline{left:480px;top:150px;transform:translate(-50%,-50%) scale(.45);opacity:1}
+  .p2 #headline{transform:translate(-50%,calc(-50% - 390px)) scale(.5);opacity:1}
+  .p3 #headline{transform:translate(calc(-50% - 480px),calc(-50% - 390px)) scale(.45);opacity:1}
 
   #player{position:absolute;left:960px;top:560px;width:760px;text-align:center;transform:translate(-50%,-50%) scale(.2);opacity:0;
-    transition:transform .7s cubic-bezier(.17,.9,.3,1.2),opacity .4s,left .8s cubic-bezier(.6,0,.2,1),top .8s cubic-bezier(.6,0,.2,1)}
+    transition:transform .7s cubic-bezier(.2,.85,.25,1.1),opacity .4s;will-change:transform,opacity}
   .p2 #player{transform:translate(-50%,-50%) scale(1);opacity:1}
-  .p3 #player{left:480px;top:600px;transform:translate(-50%,-50%) scale(.9);opacity:1}
+  .p3 #player{transform:translate(calc(-50% - 480px),calc(-50% + 40px)) scale(.9);opacity:1}
   .ringwrap{position:relative;width:400px;height:400px;margin:0 auto}
   .ringwrap .dash{position:absolute;inset:0;border-radius:50%;border:8px dashed rgba(220,235,255,.85);animation:spin 9s linear infinite}
   .ringwrap .solid{position:absolute;inset:22px;border-radius:50%;border:6px solid #e9f1ff;
@@ -69,7 +72,7 @@
     background:rgba(0,0,0,.55);padding:2px 10px;border-radius:6px;
     font-size:32px;
   }
-  #pname{display:inline-block;width:auto;text-align:center;font-size:120px;margin-top:26px;letter-spacing:2px}
+  #pname{position:relative;display:inline-block;width:auto;text-align:center;font-size:120px;margin-top:26px;letter-spacing:2px}
   #pmeta{text-transform:uppercase;text-align:center;font-weight:700;font-size:36px;letter-spacing:6px;color:#bcd3ff;margin-top:12px}
 
   #card{position:absolute;left:900px;top:300px;width:930px;padding:34px 44px 36px;border-radius:14px;
@@ -77,6 +80,7 @@
     border:2px solid rgba(150,195,255,.55);box-shadow:0 0 0 1px rgba(255,255,255,.08) inset,0 30px 60px rgba(0,0,0,.5),0 0 60px rgba(70,140,255,.35);
     transform:translateX(160px);opacity:0;transition:transform .7s cubic-bezier(.17,.9,.3,1),opacity .5s}
   .p3 #card{transform:none;opacity:1}
+  #card,.backdrop,.ringwrap .dash{will-change:transform,opacity}
   .chead{display:flex;align-items:center;gap:14px;font-weight:700;font-size:28px;letter-spacing:3px;color:#b8cdf2;text-transform:uppercase}
   .chead .txt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .live{flex:none;background:#4c7dff;color:#fff;border-radius:4px;padding:2px 10px;font-size:22px;letter-spacing:2px;animation:pulse 1.2s ease-in-out infinite}
@@ -130,10 +134,10 @@
 <div id="stage">
       <div id="overlay">
         <div class="backdrop"></div>
-        <canvas id="fx" width="1920" height="1080"></canvas>
+        <canvas id="fx" width="960" height="540"></canvas>
         <div class="flash"></div>
         <div class="burst"><i></i><i></i><i></i></div>
-        <div id="headline" class="chrome">TOUCHDOWN</div>
+        <div id="headline" class="chrome" data-text="TOUCHDOWN">TOUCHDOWN</div>
         <div id="player">
           <div class="ringwrap"><div class="glow"></div><div class="dash"></div><div class="solid"></div>
             <div class="avatar" id="avatar">
@@ -180,9 +184,9 @@ function addConfetti(n,burst){ for(let i=0;i<n;i++) fx.conf.push({
   r: Math.random()*6.28, vr:(Math.random()-.5)*.3, w:8+Math.random()*12, h:4+Math.random()*7,
   c: CC[(Math.random()*CC.length)|0]}); }
 function resetStreak(s){ s.a=Math.random()*6.283; s.r=Math.random()*80; s.v=4+Math.random()*10; s.len=60+Math.random()*180; }
-for(let i=0;i<90;i++){ const s={}; resetStreak(s); s.r=Math.random()*1200; fx.streaks.push(s); }
+for(let i=0;i<50;i++){ const s={}; resetStreak(s); s.r=Math.random()*1200; fx.streaks.push(s); }
 function tick(){
-  ctx.clearRect(0,0,1920,1080);
+  ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,960,540); ctx.setTransform(.5,0,0,.5,0,0);
   const cx=960, cy=620;
   ctx.lineCap='round';
   for(const s of fx.streaks){
@@ -198,13 +202,14 @@ function tick(){
     const p=fx.conf[i]; p.vy+=.25; p.vx*=.985; if(p.vy>6) p.vy=6;
     p.x+=p.vx+Math.sin(p.r)*.8; p.y+=p.vy; p.r+=p.vr;
     if(p.y>1110){ if(fx.spawn){ p.y=-20; p.x=Math.random()*1920; p.vy=2+Math.random()*3; p.vx=(Math.random()-.5)*2; } else { fx.conf.splice(i,1); continue; } }
-    ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.r); ctx.scale(1,Math.cos(p.r*2));
-    ctx.fillStyle=p.c; ctx.fillRect(-p.w/2,-p.h/2,p.w,p.h); ctx.restore();
+    const c=Math.cos(p.r), sn=Math.sin(p.r), k=Math.cos(p.r*2);
+    ctx.setTransform(.5*c,.5*sn,-.5*sn*k,.5*c*k,.5*p.x,.5*p.y);
+    ctx.fillStyle=p.c; ctx.fillRect(-p.w/2,-p.h/2,p.w,p.h);
   }
   if(fx.on) fx.raf=requestAnimationFrame(tick);
 }
 function fxStart(){ fx.conf=[]; fx.on=true; fx.spawn=true; fx.warp=6; cancelAnimationFrame(fx.raf); tick(); }
-function fxStop(){ fx.on=false; fx.spawn=false; cancelAnimationFrame(fx.raf); ctx.clearRect(0,0,1920,1080); }
+function fxStop(){ fx.on=false; fx.spawn=false; cancelAnimationFrame(fx.raf); ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,960,540); }
 
 /* ---------- alert sequence ---------- */
 const $=id=>document.getElementById(id), ov=$('overlay');
@@ -290,7 +295,8 @@ function showAlert(d){ queue.push(d); if(!busy) next(); }
 function next(){
   const d=queue.shift(); if(!d){ busy=false; A.collapse(); return; }
   busy=true; A.expand();
-  setTimeout(()=>{ fit(); runAlert(d); },180);
+  const t0=Date.now();
+  (function waitFull(){ if(innerWidth>200 || Date.now()-t0>2000){ fit(); requestAnimationFrame(()=>runAlert(d)); } else setTimeout(waitFull,40); })();
 }
 function runAlert(d){
   timers.forEach(clearTimeout); timers=[];
@@ -298,7 +304,7 @@ function runAlert(d){
   const initials=p.name.split(/\s+/).map(w=>w.replace(/[^A-Za-z]/g,'')[0]||'').join('').slice(0,2).toUpperCase();
   const playerId = p.id || p.player_id || p.sleeper_id || '';
 
-  $('headline').textContent=d.type;
+  $('headline').textContent=d.type; $('headline').dataset.text=d.type;
   $('ini').textContent=initials;
   $('num').textContent=p.num!=='' ? `#${p.num}` : '';
   $('avatar').style.setProperty('--c1',p.c1||'#0b2a6e');
@@ -322,7 +328,7 @@ function runAlert(d){
     : '';
 
   const rival=d.side==='opp';
-  $('pname').textContent=p.name; fitText($('pname'),740,120);
+  $('pname').textContent=p.name; $('pname').dataset.text=p.name; fitText($('pname'),740,120);
   $('pmeta').textContent=[p.pos,p.team].filter(Boolean).join(' · ')+(rival&&d.opp?' · '+d.opp.name:'');
   $('projLbl').textContent=rival?'THEIR PROJECTED':'PROJECTED';
   $('wpLbl').textContent=rival?'YOUR WIN PROBABILITY':'WIN PROBABILITY';
@@ -342,7 +348,7 @@ function runAlert(d){
   ov.className=''; void ov.offsetWidth;
   ov.className='on'+(rival?' rival':d.type==='BIG PLAY'?' bigplay':'')+(side?'':' noopp')+(d.proj&&d.wp?'':' noproj');
   fxStart(); if(cfg.sound!==false){ if(rival) playWomp(); else playSound(d.type==='BIG PLAY'); }
-  requestAnimationFrame(()=>requestAnimationFrame(()=>{ ov.classList.add('p1'); addConfetti(rival?60:160,true); }));
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{ ov.classList.add('p1'); addConfetti(rival?40:90,true); }));
   if(rival) fx.spawn=false;   // no confetti rain for the bad guys
   at(1500,()=>{ ov.classList.remove('p1'); ov.classList.add('p2'); });
   at(3100,()=>{ ov.classList.remove('p2'); ov.classList.add('p3'); });
