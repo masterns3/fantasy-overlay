@@ -62,6 +62,7 @@
       <div class="row btn" data-act="test">▶ TEST MY TD</div>
       <div class="row btn" data-act="testopp">▶ TEST OPPONENT TD</div>
     </div>
+    <div class="row btn" data-act="testlater">⏱ TEST IN 15 SEC (then switch to your game app)</div>
     <div class="row btn" data-act="replay">▶ REPLAY GAME</div>
     <div class="row" data-step="replayGame"><span class="lbl">Replay</span><span class="val" id="v-replayGame"></span></div>
     <div class="row" data-step="replayMode"><span class="lbl">Replay plays by</span><span class="val" id="v-replayMode"></span></div>
@@ -153,6 +154,7 @@ function activate(el){
   if (el.dataset.step) { steps[el.dataset.step].move(1); render(); return; }
   if (act==='save') return save();
   if (act==='test') return send('test', {side:'me'}, 'Test alert sent — watch the screen');
+  if (act==='testlater') return send('testlater', {side:'me', sec:15}, 'Alert in 15 seconds — press Home and open RedZone now!');
   if (act==='testopp') return send('test', {side:'opp'}, 'Opponent test sent — brace yourself');
   if (act==='replay') { const G=replayList(); if(!G.length) return toast('No games to replay yet');
     const g=G[local.replayGame%G.length]; return send('replay', {id:g.id, everyone: local.replayMode!=='mine'}, 'Replaying '+g.label.replace('★ ','')+'…'); }

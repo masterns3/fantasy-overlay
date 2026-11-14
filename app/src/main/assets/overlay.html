@@ -408,6 +408,7 @@ window.engine=engine;
 window.cmd=function(name,arg){
   try{
     if(name==='test') engine.testAlert(arg&&arg.side);
+    else if(name==='testlater') setTimeout(()=>{ try{ engine.testAlert(arg&&arg.side); }catch(e){ engine.setStatus({error:e.message}); } }, ((arg&&arg.sec)||15)*1000);
     else if(name==='replay') engine.replay(arg.id, !!arg.everyone).catch(e=>engine.setStatus({error:e.message}));
     else if(name==='preview'){ queue.length=0; busy=true; A.expand(); fit(); runAlert(arg); }  // interrupts, for previews
   }catch(e){ engine.setStatus({error:e.message}); }
