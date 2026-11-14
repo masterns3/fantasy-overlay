@@ -18,9 +18,10 @@ import android.webkit.WebViewClient;
 import org.json.JSONObject;
 
 /**
- * Hosts the always-on overlay WebView. While idle the window is 1x1 px (invisible, lets the
- * engine keep polling); when an alert fires it expands to full screen, then shrinks back.
- * The window never takes focus or touches, so the remote keeps controlling the app underneath.
+ * Hosts the always-on overlay WebView. The window stays full screen the whole time; while idle
+ * the page is fully transparent, so nothing has to resize when an alert fires (some TV boxes
+ * stop redrawing a WebView window after it grows). It never takes focus or touches, so the
+ * remote keeps controlling the app underneath.
  */
 final class OverlayHost {
     private static final String TAG = "FantasyOverlay";
@@ -36,7 +37,7 @@ final class OverlayHost {
     OverlayHost(Context ctx, int windowType) {
         this.ctx = ctx;
         this.wm = (WindowManager) ctx.getSystemService(Context.WINDOW_SERVICE);
-        lp = new WindowManager.LayoutParams(1, 1, windowType,
+        lp = new WindowManager.LayoutParams(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT, windowType,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
                         | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
                         | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
@@ -77,16 +78,8 @@ final class OverlayHost {
         main.post(() -> { if (web != null) web.evaluateJavascript(js, null); });
     }
 
-    private void resize(boolean full) {
-        main.post(() -> {
-            if (web == null) return;
-            int size = full ? WindowManager.LayoutParams.MATCH_PARENT : 1;
-            if (lp.width == size) return;
-            lp.width = size;
-            lp.height = size;
-            try { wm.updateViewLayout(web, lp); } catch (Exception e) { Log.w(TAG, "resize", e); }
-        });
-    }
+    /** Kept for the page's expand()/collapse() calls; the window no longer changes size. */
+    private void resize(boolean full) { }
 
     final class Bridge {
         @JavascriptInterface public String getConfig() { return Prefs.config(ctx); }
