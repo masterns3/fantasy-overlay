@@ -393,8 +393,8 @@ function runAlert(d){
     if(d.proj&&d.wp){ countUp($('proj'),d.proj.before,d.proj.after,1300);
       $('wpFill').style.transition=''; $('wpFill').style.width=d.wp.after+'%';
       setTimeout(()=>$('wpPct').textContent=d.wp.after+'%',700); } });
-  at(9600,()=>{ fx.spawn=false; ov.classList.add('out'); });
-  at(10500,()=>{ perfStop(d); ov.className=''; fxStop(); setTimeout(next,400); });
+  at(6600,()=>{ fx.spawn=false; ov.classList.add('out'); });
+  at(7500,()=>{ perfStop(d); ov.className=''; fxStop(); setTimeout(next,400); });
 }
 
 /* ---------- engine ---------- */

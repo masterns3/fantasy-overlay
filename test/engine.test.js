@@ -123,7 +123,7 @@ function makeFetch() {
   found.forEach((a) => eng.enqueue(a));
   assert.strictEqual(timers.length, 3);
   assert.strictEqual(timers[0].at - t, 30000, '30s spoiler delay');
-  assert.ok(timers[1].at - timers[0].at >= 13000, 'alerts spaced out');
+  assert.ok(timers[1].at - timers[0].at >= 10000, 'alerts spaced out');
   timers.sort((a, b) => a.at - b.at).forEach((x) => { t = x.at; x.fn(); });
   timers.length = 0;
   assert.strictEqual(alerts.length, 3);

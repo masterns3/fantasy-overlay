@@ -380,7 +380,7 @@
     // ---------- alert delivery ----------
     enqueue(a, delayMs) {
       const d = delayMs != null ? delayMs : this.cfg.delaySec * 1000;
-      const fireAt = Math.max(this.now() + d, this.lastQueuedAt + 13000);
+      const fireAt = Math.max(this.now() + d, this.lastQueuedAt + 10000);
       this.lastQueuedAt = fireAt;
       this.setTimer(() => this.fire(a), fireAt - this.now());
     }
@@ -500,7 +500,7 @@
       const alerts = this.evaluateBoth(items, g, opts);
       this.seen = saved;
       this.lastQueuedAt = 0;
-      alerts.forEach((a, i) => { a.replay = true; this.setTimer(() => this.fire(a), 500 + i * 14000); });
+      alerts.forEach((a, i) => { a.replay = true; this.setTimer(() => this.fire(a), 500 + i * 11000); });
       this.setStatus({ replay: { game: g.name, alerts: alerts.length, everyone: !!everyone } });
       return alerts;
     }
