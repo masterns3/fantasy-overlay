@@ -184,8 +184,20 @@
 <script src="engine.js"></script>
 <script>
 const stage=document.getElementById('stage');
-function fit(){ const s=Math.min(innerWidth/1920, innerHeight/1080)||1; stage.style.transform=`scale(${s})`; }
-addEventListener('resize',fit); fit();
+function screenSize(){
+  // Prefer the size measured by Android; fall back to what the page reports.
+  let n=null; try{ if(window.Android&&Android.viewSize) n=JSON.parse(Android.viewSize()); }catch(e){}
+  const w=(n&&n.w>50)?n.w:(document.documentElement.clientWidth||innerWidth);
+  const h=(n&&n.h>50)?n.h:(document.documentElement.clientHeight||innerHeight);
+  return {w,h,n};
+}
+function fit(){
+  const z=screenSize(); const s=Math.min(z.w/1920, z.h/1080)||1;
+  stage.style.transform=`scale(${s})`;
+  window.__screen={inner:innerWidth+'x'+innerHeight, client:document.documentElement.clientWidth+'x'+document.documentElement.clientHeight,
+    native:z.n?Math.round(z.n.w)+'x'+Math.round(z.n.h)+' ('+z.n.pw+'x'+z.n.ph+' px @'+z.n.density+')':'n/a', dpr:devicePixelRatio, scale:+s.toFixed(3)};
+}
+addEventListener('resize',fit); fit(); setTimeout(fit,500); setTimeout(fit,2000);
 /* ---------- particles ---------- */
 const cv=document.getElementById('fx'), ctx=cv.getContext('2d');
 const fx={on:false,spawn:false,conf:[],streaks:[],raf:0,warp:1};
@@ -306,7 +318,7 @@ function perfTick(t){ if(!perf.on) return; const dt=t-perf.last; perf.last=t; pe
   if(perf.frames%15===0){ const el=document.getElementById('perf'); if(el) el.textContent=Math.round(perf.frames*1000/(t-perf.t0))+' fps · worst '+Math.round(perf.worst)+' ms · '+(cfg.effects==='full'?'full':'lite'); }
   requestAnimationFrame(perfTick); }
 function perfStop(d){ perf.on=false; const secs=(perf.last-perf.t0)/1000;
-  try{ engine.setStatus({perf:{fps:Math.round(perf.frames/Math.max(secs,.1)),worst:Math.round(perf.worst),effects:cfg.effects==='full'?'full':'lite',at:Date.now()}}); }catch(e){} }
+  try{ engine.setStatus({perf:{fps:Math.round(perf.frames/Math.max(secs,.1)),worst:Math.round(perf.worst),effects:cfg.effects==='full'?'full':'lite',at:Date.now()}, screen:window.__screen}); }catch(e){} }
 
 /* ---------- native bridge ---------- */
 const A=window.Android||{getConfig:()=>JSON.stringify({username:'neils011'}),expand(){},collapse(){},status(){},log:(m)=>console.log(m)};

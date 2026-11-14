@@ -53,6 +53,10 @@ final class OverlayHost {
         s.setAllowFileAccess(true);
         s.setAllowUniversalAccessFromFileURLs(true);   // lets the engine call Sleeper/ESPN from file://
         s.setMediaPlaybackRequiresUserGesture(false);  // horn sound
+        s.setUseWideViewPort(true);                     // honour <meta viewport width=device-width>
+        s.setLoadWithOverviewMode(false);
+        s.setSupportZoom(false);
+        s.setTextZoom(100);                             // ignore the TV's large-text setting
         web.setWebViewClient(new WebViewClient());
         web.addJavascriptInterface(new Bridge(), "Android");
         web.loadUrl("file:///android_asset/overlay.html");
@@ -87,5 +91,19 @@ final class OverlayHost {
         @JavascriptInterface public void collapse() { resize(false); }
         @JavascriptInterface public void status(String json) { Prefs.saveStatus(ctx, json); }
         @JavascriptInterface public void log(String msg) { Log.i(TAG, msg); }
+
+        /** Real size of the overlay window in CSS pixels, measured natively (the page's own
+         *  innerWidth can be wrong on some TV boxes). */
+        @JavascriptInterface public String viewSize() {
+            float d = ctx.getResources().getDisplayMetrics().density;
+            WebView w = web;
+            int pw = w != null ? w.getWidth() : 0, ph = w != null ? w.getHeight() : 0;
+            if (pw <= 0 || ph <= 0) {
+                android.graphics.Point p = new android.graphics.Point();
+                wm.getDefaultDisplay().getRealSize(p);
+                pw = p.x; ph = p.y;
+            }
+            return "{\"w\":" + (pw / d) + ",\"h\":" + (ph / d) + ",\"pw\":" + pw + ",\"ph\":" + ph + ",\"density\":" + d + "}";
+        }
     }
 }

@@ -84,6 +84,7 @@
       <div class="kv"><span>Last check</span><b id="lastPoll">—</b></div>
       <div class="kv"><span>Last pop-up</span><b id="lastAlert">—</b></div>
       <div class="kv"><span>Animation speed</span><b id="perfv">run a test</b></div>
+      <div class="small" id="screenv"></div>
       <div class="small" id="starters"></div>
       <div class="err" id="unmatched"></div>
     </div>
@@ -206,6 +207,7 @@ function refresh(){
   $('live').textContent = (status.live&&status.live.length)? status.live.join(', ') : 'none right now';
   $('lastPoll').textContent = ago(status.lastPoll);
   $('lastAlert').textContent = status.lastAlert ? status.lastAlert.player+' · '+ago(status.lastAlert.at) : '—';
+  if (status.screen) $('screenv').textContent = 'Screen: native '+status.screen.native+' · page '+status.screen.inner+' · scale '+status.screen.scale;
   if (status.perf) $('perfv').textContent = status.perf.fps+' fps · worst '+status.perf.worst+' ms ('+status.perf.effects+')';
   $('starters').textContent = status.starters ? 'Starters: '+status.starters.join(', ') : '';
   $('unmatched').textContent = (status.unmatched&&status.unmatched.length) ? 'Not found on ESPN yet: '+status.unmatched.join(', ') : '';
