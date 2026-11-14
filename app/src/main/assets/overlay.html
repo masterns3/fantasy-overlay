@@ -41,14 +41,14 @@
     -webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
 
   #headline{position:absolute;left:960px;top:540px;font-size:300px;letter-spacing:4px;
-    transform:translate(-50%,-50%) scale(2.6);opacity:0;
-    transition:transform .65s cubic-bezier(.2,.85,.25,1.08),opacity .35s;will-change:transform,opacity}
+    transform:translate(-50%,-50%) scale(1.35);opacity:0;
+    transition:transform .55s cubic-bezier(.2,.85,.25,1.15),opacity .3s}
   .p1 #headline{transform:translate(-50%,-50%) scale(1);opacity:1}
   .p2 #headline{transform:translate(-50%,calc(-50% - 390px)) scale(.5);opacity:1}
   .p3 #headline{transform:translate(calc(-50% - 480px),calc(-50% - 390px)) scale(.45);opacity:1}
 
   #player{position:absolute;left:960px;top:560px;width:760px;text-align:center;transform:translate(-50%,-50%) scale(.2);opacity:0;
-    transition:transform .7s cubic-bezier(.2,.85,.25,1.1),opacity .4s;will-change:transform,opacity}
+    transition:transform .7s cubic-bezier(.2,.85,.25,1.1),opacity .4s}
   .p2 #player{transform:translate(-50%,-50%) scale(1);opacity:1}
   .p3 #player{transform:translate(calc(-50% - 480px),calc(-50% + 40px)) scale(.9);opacity:1}
   .ringwrap{position:relative;width:400px;height:400px;margin:0 auto}
@@ -80,7 +80,6 @@
     border:2px solid rgba(150,195,255,.55);box-shadow:0 0 0 1px rgba(255,255,255,.08) inset,0 30px 60px rgba(0,0,0,.5),0 0 60px rgba(70,140,255,.35);
     transform:translateX(160px);opacity:0;transition:transform .7s cubic-bezier(.17,.9,.3,1),opacity .5s}
   .p3 #card{transform:none;opacity:1}
-  #card,.backdrop,.ringwrap .dash{will-change:transform,opacity}
   .chead{display:flex;align-items:center;gap:14px;font-weight:700;font-size:28px;letter-spacing:3px;color:#b8cdf2;text-transform:uppercase}
   .chead .txt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .live{flex:none;background:#4c7dff;color:#fff;border-radius:4px;padding:2px 10px;font-size:22px;letter-spacing:2px;animation:pulse 1.2s ease-in-out infinite}
@@ -128,6 +127,15 @@
   .rival .ringwrap .solid{border-color:#ffe3e7;box-shadow:0 0 30px rgba(255,120,140,.9),inset 0 0 25px rgba(255,120,140,.6)}
   .rival .ringwrap .glow{background:radial-gradient(circle,rgba(255,110,130,.35),transparent 65%)}
   .rival .burst i{border-color:rgba(255,190,200,.7)}
+  /* Lite effects: for low-power TV boxes */
+  .lite #fx,.lite .flash,.lite .burst,.lite .ringwrap .glow{display:none}
+  .lite .ringwrap .dash{animation:none}
+  .lite .chrome{text-shadow:0 3px 0 #8395b2,0 6px 0 #4b5c7c}
+  .lite #card,.lite .ringwrap .solid,.lite #delta,.lite #wpFill{box-shadow:none}
+  .lite .live{animation:none}
+  /* on-screen speed readout for test alerts */
+  #perf{position:absolute;right:24px;bottom:18px;font:700 26px "Barlow Condensed",sans-serif;color:#fff;background:rgba(0,0,0,.6);padding:4px 12px;border-radius:6px;display:none}
+  .showperf #perf{display:block}
 </style>
 </head>
 <body>
@@ -149,6 +157,7 @@
           <span id="pname" class="chrome"></span>
           <div id="pmeta"></div>
         </div>
+        <div id="perf"></div>
         <div id="card">
           <div class="chead"><span class="txt" id="cDesc"></span><span class="opptag">OPPONENT</span><span class="live">LIVE</span></div>
           <div class="cmain">
@@ -285,6 +294,15 @@ function rivalLine(me,before,after){
   return '▼ They extend their lead to '+f1(-a);
 }
 
+/* ---------- frame-rate meter ---------- */
+const perf={on:false,frames:0,worst:0,last:0,t0:0};
+function perfStart(){ perf.on=true; perf.frames=0; perf.worst=0; perf.t0=perf.last=performance.now(); requestAnimationFrame(perfTick); }
+function perfTick(t){ if(!perf.on) return; const dt=t-perf.last; perf.last=t; perf.frames++; if(perf.frames>3&&dt>perf.worst) perf.worst=dt;
+  if(perf.frames%15===0){ const el=document.getElementById('perf'); if(el) el.textContent=Math.round(perf.frames*1000/(t-perf.t0))+' fps · worst '+Math.round(perf.worst)+' ms · '+(cfg.effects==='full'?'full':'lite'); }
+  requestAnimationFrame(perfTick); }
+function perfStop(d){ perf.on=false; const secs=(perf.last-perf.t0)/1000;
+  try{ engine.setStatus({perf:{fps:Math.round(perf.frames/Math.max(secs,.1)),worst:Math.round(perf.worst),effects:cfg.effects==='full'?'full':'lite',at:Date.now()}}); }catch(e){} }
+
 /* ---------- native bridge ---------- */
 const A=window.Android||{getConfig:()=>JSON.stringify({username:'neils011'}),expand(){},collapse(){},status(){},log:(m)=>console.log(m)};
 let cfg={}; try{ cfg=JSON.parse(A.getConfig()||'{}'); }catch(e){}
@@ -346,9 +364,11 @@ function runAlert(d){
     $('wpFill').style.transition='none'; $('wpFill').style.width=d.wp.before+'%'; $('wpPct').textContent=d.wp.before+'%';
   }
   ov.className=''; void ov.offsetWidth;
-  ov.className='on'+(rival?' rival':d.type==='BIG PLAY'?' bigplay':'')+(side?'':' noopp')+(d.proj&&d.wp?'':' noproj');
-  fxStart(); if(cfg.sound!==false){ if(rival) playWomp(); else playSound(d.type==='BIG PLAY'); }
-  requestAnimationFrame(()=>requestAnimationFrame(()=>{ ov.classList.add('p1'); addConfetti(rival?40:90,true); }));
+  const lite=cfg.effects!=='full';
+  ov.className='on'+(rival?' rival':d.type==='BIG PLAY'?' bigplay':'')+(side?'':' noopp')+(d.proj&&d.wp?'':' noproj')+(lite?' lite':'')+(d.test?' showperf':'');
+  perfStart();
+  if(!lite) fxStart(); if(cfg.sound!==false){ if(rival) playWomp(); else playSound(d.type==='BIG PLAY'); }
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{ ov.classList.add('p1'); if(!lite) addConfetti(rival?40:90,true); }));
   if(rival) fx.spawn=false;   // no confetti rain for the bad guys
   at(1500,()=>{ ov.classList.remove('p1'); ov.classList.add('p2'); });
   at(3100,()=>{ ov.classList.remove('p2'); ov.classList.add('p3'); });
@@ -357,7 +377,7 @@ function runAlert(d){
       $('wpFill').style.transition=''; $('wpFill').style.width=d.wp.after+'%';
       setTimeout(()=>$('wpPct').textContent=d.wp.after+'%',700); } });
   at(10800,()=>{ fx.spawn=false; ov.classList.add('out'); });
-  at(11700,()=>{ ov.className=''; fxStop(); setTimeout(next,400); });
+  at(11700,()=>{ perfStop(d); ov.className=''; fxStop(); setTimeout(next,400); });
 }
 
 /* ---------- engine ---------- */

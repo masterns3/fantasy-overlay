@@ -392,7 +392,7 @@
       const player = { name: p.name || '', pos: p.pos || '', team: p.team || '', num: p.num || '', c1: col.c1, c2: col.c2 };
       const myNow = r1(this.me.points + (live ? this.localAdj : 0));
       const oppNow = this.opp ? r1(this.opp.points + (live ? this.oppAdj : 0)) : null;
-      const base = { type: a.type, side: a.side || 'me', league: this.league ? this.league.name : '', desc: a.desc, player };
+      const base = { type: a.type, side: a.side || 'me', league: this.league ? this.league.name : '', desc: a.desc, player, test: !!a.test };
       if (a.side === 'opp') {
         const oppAfter = r1(oppNow + a.delta);
         const w0 = this.winProb(myNow, oppNow), w1 = this.winProb(myNow, oppAfter);
