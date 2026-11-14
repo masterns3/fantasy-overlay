@@ -1,0 +1,55 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Engine tests
+        run: node test/engine.test.js
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Restore signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then echo "$KEYSTORE_B64" | base64 -d > app/release.jks; fi
+
+      - name: Build
+        env:
+          KS_PASS: ${{ secrets.KS_PASS }}
+        run: gradle :app:assembleRelease --no-daemon
+
+      - name: Rename
+        run: cp app/build/outputs/apk/release/app-release.apk fantasy-overlay.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fantasy-overlay-apk
+          path: fantasy-overlay.apk
+
+      - name: Publish to "latest" release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Latest build
+          body: "Install on your Google TV box with the Downloader app. Built from ${{ github.sha }}."
+          files: fantasy-overlay.apk
+          make_latest: true

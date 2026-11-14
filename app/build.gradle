@@ -1,0 +1,43 @@
+plugins {
+    id 'com.android.application'
+}
+
+def ksFile = file('release.jks')
+
+android {
+    namespace 'com.neil.fantasyoverlay'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.neil.fantasyoverlay'
+        minSdk 26
+        targetSdk 34
+        versionCode Integer.parseInt(System.getenv('GITHUB_RUN_NUMBER') ?: '1')
+        versionName "1.0." + (System.getenv('GITHUB_RUN_NUMBER') ?: '0')
+    }
+
+    signingConfigs {
+        release {
+            if (ksFile.exists()) {
+                storeFile ksFile
+                storePassword System.getenv('KS_PASS') ?: 'fantasyoverlay'
+                keyAlias 'overlay'
+                keyPassword System.getenv('KS_PASS') ?: 'fantasyoverlay'
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig ksFile.exists() ? signingConfigs.release : signingConfigs.debug
+        }
+    }
+
+    buildFeatures { buildConfig true }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}

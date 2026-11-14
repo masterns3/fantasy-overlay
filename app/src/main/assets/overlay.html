@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fantasy Overlay</title>
+<link rel="stylesheet" href="fonts.css">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:transparent;overflow:hidden;width:100%;height:100%;font-family:"Barlow Condensed",sans-serif}
+  #stage{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0;overflow:hidden}
+  .noopp .vs,.noopp .opp{display:none}
+  .noproj .cfoot{display:none}
+  /* ---------- OVERLAY ---------- */
+  #overlay{position:absolute;inset:0;pointer-events:none;opacity:0;visibility:hidden;transition:opacity .6s}
+  #overlay.on{opacity:1;visibility:visible}
+  #overlay.out{opacity:0;transition:opacity .8s}
+  .backdrop{position:absolute;inset:0;opacity:0;transition:opacity .9s ease;
+    background:radial-gradient(ellipse at 50% 62%,#2a62e6 0%,#123a9e 38%,#0a1f63 70%,#050f36 100%)}
+  .p1 .backdrop{opacity:.42}
+  .p2 .backdrop,.p3 .backdrop{opacity:.95}
+  .flash{position:absolute;inset:0;background:#fff;opacity:0}
+  .p1 .flash{animation:flash .5s ease-out}
+  @keyframes flash{0%{opacity:.55}100%{opacity:0}}
+  #fx{position:absolute;inset:0;width:1920px;height:1080px}
+
+  .burst{position:absolute;left:960px;top:540px}
+  .burst i{position:absolute;left:0;top:0;width:300px;height:300px;margin:-150px 0 0 -150px;border-radius:50%;
+    border:10px solid rgba(190,220,255,.7);opacity:0}
+  .p1 .burst i{animation:ring 1.4s cubic-bezier(.2,.7,.3,1) forwards}
+  .p1 .burst i:nth-child(2){animation-delay:.12s;border-width:5px}
+  .p1 .burst i:nth-child(3){animation-delay:.24s;border-width:3px}
+  @keyframes ring{0%{transform:scale(.2);opacity:.9}100%{transform:scale(5);opacity:0}}
+
+  .chrome{font-family:Anton,Impact,"Arial Narrow",sans-serif;font-weight:400;text-transform:uppercase;line-height:1;white-space:nowrap;
+    background:linear-gradient(180deg,#ffffff 0%,#f2f6fc 40%,#a9bad3 49%,#ffffff 53%,#d4dfef 80%,#9fb0ca 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(0 3px 0 #8395b2) drop-shadow(0 6px 0 #4b5c7c) drop-shadow(0 14px 22px rgba(0,0,0,.55))}
+
+  #headline{position:absolute;left:960px;top:540px;font-size:300px;letter-spacing:4px;
+    transform:translate(-50%,-50%) scale(2.6);opacity:0;
+    transition:transform .55s cubic-bezier(.17,.9,.3,1.15),opacity .35s,left .8s cubic-bezier(.6,0,.2,1),top .8s cubic-bezier(.6,0,.2,1)}
+  .p1 #headline{transform:translate(-50%,-50%) scale(1);opacity:1}
+  .p2 #headline{top:150px;transform:translate(-50%,-50%) scale(.5);opacity:1}
+  .p3 #headline{left:480px;top:150px;transform:translate(-50%,-50%) scale(.45);opacity:1}
+
+  #player{position:absolute;left:960px;top:560px;width:760px;text-align:center;transform:translate(-50%,-50%) scale(.2);opacity:0;
+    transition:transform .7s cubic-bezier(.17,.9,.3,1.2),opacity .4s,left .8s cubic-bezier(.6,0,.2,1),top .8s cubic-bezier(.6,0,.2,1)}
+  .p2 #player{transform:translate(-50%,-50%) scale(1);opacity:1}
+  .p3 #player{left:480px;top:600px;transform:translate(-50%,-50%) scale(.9);opacity:1}
+  .ringwrap{position:relative;width:400px;height:400px;margin:0 auto}
+  .ringwrap .dash{position:absolute;inset:0;border-radius:50%;border:8px dashed rgba(220,235,255,.85);animation:spin 9s linear infinite}
+  .ringwrap .solid{position:absolute;inset:22px;border-radius:50%;border:6px solid #e9f1ff;
+     box-shadow:0 0 30px rgba(140,190,255,.9),inset 0 0 25px rgba(140,190,255,.6)}
+  .ringwrap .glow{position:absolute;inset:-30px;border-radius:50%;background:radial-gradient(circle,rgba(120,180,255,.35),transparent 65%)}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .avatar{position:absolute;inset:40px;border-radius:50%;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;
+     background:radial-gradient(circle at 50% 35%,var(--c2,#3b6fe0) 0%,var(--c1,#0b2a6e) 75%)}
+  .avatar .ini{font-family:Anton;font-size:150px;color:#fff;line-height:1;text-shadow:0 6px 0 rgba(0,0,0,.25)}
+  .avatar .num{font-family:"Barlow Condensed";font-weight:800;font-size:44px;color:rgba(255,255,255,.85);letter-spacing:2px}
+  #pname{display:inline-block;width:auto;text-align:center;font-size:120px;margin-top:26px;letter-spacing:2px}
+  #pmeta{text-align:center;font-weight:700;font-size:36px;letter-spacing:6px;color:#bcd3ff;margin-top:12px}
+
+  #card{position:absolute;left:900px;top:300px;width:930px;padding:34px 44px 36px;border-radius:14px;
+    background:linear-gradient(180deg,rgba(28,66,160,.92),rgba(12,34,98,.94));
+    border:2px solid rgba(150,195,255,.55);box-shadow:0 0 0 1px rgba(255,255,255,.08) inset,0 30px 60px rgba(0,0,0,.5),0 0 60px rgba(70,140,255,.35);
+    transform:translateX(160px);opacity:0;transition:transform .7s cubic-bezier(.17,.9,.3,1),opacity .5s}
+  .p3 #card{transform:none;opacity:1}
+  .chead{display:flex;align-items:center;gap:14px;font-weight:700;font-size:28px;letter-spacing:3px;color:#b8cdf2;text-transform:uppercase}
+  .chead .txt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .live{flex:none;background:#4c7dff;color:#fff;border-radius:4px;padding:2px 10px;font-size:22px;letter-spacing:2px;animation:pulse 1.2s ease-in-out infinite}
+  @keyframes pulse{50%{opacity:.55}}
+  .cmain{display:flex;align-items:flex-end;justify-content:space-between;margin-top:18px}
+  .tname{font-family:Anton;font-size:52px;color:#fff;text-transform:uppercase;line-height:1.05;max-width:420px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .scoreRow{display:flex;align-items:flex-start;gap:18px}
+  #myScore{font-family:Anton;font-size:200px;line-height:.95;color:#fff;text-shadow:0 6px 0 rgba(0,0,0,.25)}
+  #delta{margin-top:22px;font-family:"Barlow Condensed";font-weight:800;font-size:46px;color:#062a2a;background:#3ee6c4;
+    border-radius:8px;padding:2px 14px;box-shadow:0 0 24px rgba(62,230,196,.7);transform:scale(0);transition:transform .45s cubic-bezier(.2,1.6,.4,1) .9s}
+  .p3 #delta{transform:scale(1)}
+  #status{white-space:nowrap;font-weight:800;font-size:32px;letter-spacing:3px;color:#7ff0d6;text-transform:uppercase;margin-top:6px}
+  .vs{flex:none;font-family:Anton;font-size:40px;color:#7f9ad0;margin:0 24px 110px}
+  .me{flex:1;min-width:0}.opp{flex:none;width:250px;text-align:right}
+  .opp .tname{margin-left:auto;font-size:44px;max-width:250px}
+  #oppScore{font-family:Anton;font-size:120px;color:#bcd3ff;line-height:1}
+  .cfoot{display:flex;gap:40px;align-items:flex-end;margin-top:26px;padding-top:22px;border-top:2px solid rgba(160,200,255,.35)}
+  .lbl{font-weight:700;font-size:24px;letter-spacing:3px;color:#9fb6e0}
+  .pval{font-family:Anton;font-size:64px;color:#fff;line-height:1}
+  .pdelta{font-family:"Barlow Condensed";font-weight:700;font-size:28px;color:#7ff0d6;margin-left:8px}
+  .wp{flex:1}
+  .wpl{display:flex;justify-content:space-between}
+  #wpPct{font-weight:800;font-size:28px;color:#fff}
+  .bar{height:16px;border-radius:8px;background:rgba(255,255,255,.12);margin-top:10px;overflow:hidden}
+  #wpFill{height:100%;width:0;border-radius:8px;background:linear-gradient(90deg,#2b7bff,#3ee6c4);box-shadow:0 0 18px rgba(62,230,196,.7);
+    transition:width 1.4s cubic-bezier(.3,.8,.3,1)}
+
+  /* Big play colour variant */
+  .bigplay .backdrop{background:radial-gradient(ellipse at 50% 62%,#7b3cf0 0%,#3d1c9e 40%,#1b0d5c 72%,#0b0533 100%)}
+  .bigplay .live{background:#9a5cff}
+</style>
+</head>
+<body>
+<div id="stage">
+      <div id="overlay">
+        <div class="backdrop"></div>
+        <canvas id="fx" width="1920" height="1080"></canvas>
+        <div class="flash"></div>
+        <div class="burst"><i></i><i></i><i></i></div>
+        <div id="headline" class="chrome">TOUCHDOWN</div>
+        <div id="player">
+          <div class="ringwrap"><div class="glow"></div><div class="dash"></div><div class="solid"></div>
+            <div class="avatar" id="avatar"><div class="ini" id="ini"></div><div class="num" id="num"></div></div>
+          </div>
+          <span id="pname" class="chrome"></span>
+          <div id="pmeta"></div>
+        </div>
+        <div id="card">
+          <div class="chead"><span class="txt" id="cDesc"></span><span class="live">LIVE</span></div>
+          <div class="cmain">
+            <div class="me">
+              <div class="tname" id="myName"></div>
+              <div class="scoreRow"><div id="myScore">0.0</div><div id="delta"></div></div>
+              <div id="status"></div>
+            </div>
+            <div class="vs">VS</div>
+            <div class="opp"><div class="tname" id="oppName"></div><div id="oppScore"></div></div>
+          </div>
+          <div class="cfoot">
+            <div class="proj"><div class="lbl">PROJECTED</div><div class="pval"><span id="proj"></span><span class="pdelta" id="projDelta"></span></div></div>
+            <div class="wp"><div class="wpl"><span class="lbl">WIN PROBABILITY</span><span id="wpPct"></span></div><div class="bar"><div id="wpFill"></div></div></div>
+          </div>
+        </div>
+      </div>
+</div>
+<script src="engine.js"></script>
+<script>
+const stage=document.getElementById('stage');
+function fit(){ const s=Math.min(innerWidth/1920, innerHeight/1080)||1; stage.style.transform=`scale(${s})`; }
+addEventListener('resize',fit); fit();
+/* ---------- particles ---------- */
+const cv=document.getElementById('fx'), ctx=cv.getContext('2d');
+const fx={on:false,spawn:false,conf:[],streaks:[],raf:0,warp:1};
+const CC=['#ffffff','#e6f0ff','#9cc4ff','#5f9bff','#ffffff'];
+function addConfetti(n,burst){ for(let i=0;i<n;i++) fx.conf.push({
+  x: burst? 960+(Math.random()-.5)*300 : Math.random()*1920,
+  y: burst? 540+(Math.random()-.5)*120 : -20-Math.random()*500,
+  vx: burst? (Math.random()-.5)*34 : (Math.random()-.5)*2,
+  vy: burst? -8-Math.random()*20 : 2+Math.random()*4,
+  r: Math.random()*6.28, vr:(Math.random()-.5)*.3, w:8+Math.random()*12, h:4+Math.random()*7,
+  c: CC[(Math.random()*CC.length)|0]}); }
+function resetStreak(s){ s.a=Math.random()*6.283; s.r=Math.random()*80; s.v=4+Math.random()*10; s.len=60+Math.random()*180; }
+for(let i=0;i<90;i++){ const s={}; resetStreak(s); s.r=Math.random()*1200; fx.streaks.push(s); }
+function tick(){
+  ctx.clearRect(0,0,1920,1080);
+  const cx=960, cy=620;
+  ctx.lineCap='round';
+  for(const s of fx.streaks){
+    s.r+=s.v*fx.warp; s.v*=1.03;
+    if(s.r>1500) resetStreak(s);
+    const x1=cx+Math.cos(s.a)*s.r, y1=cy+Math.sin(s.a)*s.r;
+    const x2=cx+Math.cos(s.a)*(s.r+s.len*(.4+fx.warp*.3)), y2=cy+Math.sin(s.a)*(s.r+s.len*(.4+fx.warp*.3));
+    ctx.strokeStyle=`rgba(200,225,255,${Math.min(.5,s.r/1500)})`; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+  }
+  fx.warp+= (1-fx.warp)*.03;
+  for(let i=fx.conf.length-1;i>=0;i--){
+    const p=fx.conf[i]; p.vy+=.25; p.vx*=.985; if(p.vy>6) p.vy=6;
+    p.x+=p.vx+Math.sin(p.r)*.8; p.y+=p.vy; p.r+=p.vr;
+    if(p.y>1110){ if(fx.spawn){ p.y=-20; p.x=Math.random()*1920; p.vy=2+Math.random()*3; p.vx=(Math.random()-.5)*2; } else { fx.conf.splice(i,1); continue; } }
+    ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.r); ctx.scale(1,Math.cos(p.r*2));
+    ctx.fillStyle=p.c; ctx.fillRect(-p.w/2,-p.h/2,p.w,p.h); ctx.restore();
+  }
+  if(fx.on) fx.raf=requestAnimationFrame(tick);
+}
+function fxStart(){ fx.conf=[]; fx.on=true; fx.spawn=true; fx.warp=6; cancelAnimationFrame(fx.raf); tick(); }
+function fxStop(){ fx.on=false; fx.spawn=false; cancelAnimationFrame(fx.raf); ctx.clearRect(0,0,1920,1080); }
+
+/* ---------- alert sequence ---------- */
+const $=id=>document.getElementById(id), ov=$('overlay');
+let timers=[], countRaf=0;
+const at=(ms,fn)=>timers.push(setTimeout(fn,ms));
+const f1=n=>(Math.round(n*10)/10).toFixed(1);
+
+function statusLine(d){
+  const b=d.me.before-d.opp.score, a=d.me.after-d.opp.score;
+  if(a>0 && b>0) return `▲ Extends the lead to ${f1(a)}`;
+  if(a>0) return `▲ Takes the lead by ${f1(a)}`;
+  if(a===0) return `▲ Ties it up`;
+  return `▲ Cuts the deficit to ${f1(-a)}`;
+}
+function countUp(el,from,to,ms){
+  const t0=performance.now(); cancelAnimationFrame(el._raf);
+  const step=t=>{ const k=Math.min(1,(t-t0)/ms), e=1-Math.pow(1-k,3); el.textContent=f1(from+(to-from)*e); if(k<1) el._raf=requestAnimationFrame(step); };
+  el._raf=requestAnimationFrame(step);
+}
+function fitText(el,max,start){ el.style.fontSize=start+'px'; let fs=start; while(el.scrollWidth>max && fs>40){ fs-=4; el.style.fontSize=fs+'px'; } }
+
+
+/* ---------- sound: synthesized air horn + crowd swell ---------- */
+let actx=null;
+function playSound(big){
+  try{
+    actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+    const t=actx.currentTime, out=actx.createGain(); out.gain.value=0.5; out.connect(actx.destination);
+    // crowd: filtered noise swell
+    const len=actx.sampleRate*4, buf=actx.createBuffer(1,len,actx.sampleRate), d=buf.getChannelData(0);
+    for(let i=0;i<len;i++) d[i]=(Math.random()*2-1);
+    const n=actx.createBufferSource(); n.buffer=buf;
+    const bp=actx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=900; bp.Q.value=0.6;
+    const ng=actx.createGain(); ng.gain.setValueAtTime(0.0001,t); ng.gain.exponentialRampToValueAtTime(0.35,t+0.6); ng.gain.exponentialRampToValueAtTime(0.0001,t+4);
+    n.connect(bp); bp.connect(ng); ng.connect(out); n.start(t); n.stop(t+4);
+    // horn blasts
+    const blasts=big?[0]:[0,0.55,1.1];
+    blasts.forEach((o,k)=>{
+      const len2=k===blasts.length-1?1.1:0.38;
+      [233,294,349].forEach(f=>{
+        const osc=actx.createOscillator(); osc.type='sawtooth'; osc.frequency.value=f*(big?1.26:1);
+        const g=actx.createGain(); g.gain.setValueAtTime(0.0001,t+o); g.gain.exponentialRampToValueAtTime(0.09,t+o+0.03);
+        g.gain.setValueAtTime(0.09,t+o+len2-0.08); g.gain.exponentialRampToValueAtTime(0.0001,t+o+len2);
+        const lp=actx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=2200;
+        osc.connect(lp); lp.connect(g); g.connect(out); osc.start(t+o); osc.stop(t+o+len2+0.05);
+      });
+    });
+  }catch(e){}
+}
+
+/* ---------- native bridge ---------- */
+const A=window.Android||{getConfig:()=>JSON.stringify({username:'neils011'}),expand(){},collapse(){},status(){},log:(m)=>console.log(m)};
+let cfg={}; try{ cfg=JSON.parse(A.getConfig()||'{}'); }catch(e){}
+
+/* ---------- alert sequence (queue so alerts never overlap) ---------- */
+const queue=[]; let busy=false;
+function showAlert(d){ queue.push(d); if(!busy) next(); }
+function next(){
+  const d=queue.shift(); if(!d){ busy=false; A.collapse(); return; }
+  busy=true; A.expand();
+  setTimeout(()=>{ fit(); runAlert(d); },180);
+}
+function runAlert(d){
+  timers.forEach(clearTimeout); timers=[];
+  const p=d.player, initials=p.name.split(/\s+/).map(w=>w.replace(/[^A-Za-z]/g,'')[0]||'').join('').slice(0,2).toUpperCase();
+  $('headline').textContent=d.type;
+  $('ini').textContent=initials; $('num').textContent=p.num!==''?`#${p.num}`:'';
+  $('avatar').style.setProperty('--c1',p.c1||'#0b2a6e'); $('avatar').style.setProperty('--c2',p.c2||'#2f66d6');
+  $('pname').textContent=p.name; fitText($('pname'),740,120); $('pmeta').textContent=[p.pos,p.team].filter(Boolean).join(' · ');
+  $('cDesc').textContent=[d.league,d.desc].filter(Boolean).join(' · ');
+  $('myName').textContent=d.me.name; $('myScore').textContent=f1(d.me.before);
+  const delta=d.me.after-d.me.before; $('delta').textContent=`${delta>=0?'+':''}${f1(delta)}`;
+  if(d.opp){ $('oppName').textContent=d.opp.name; $('oppScore').textContent=f1(d.opp.score); $('status').textContent=statusLine({me:d.me,opp:d.opp}); }
+  else $('status').textContent='';
+  if(d.proj&&d.wp){
+    $('proj').textContent=f1(d.proj.before); const pd=d.proj.after-d.proj.before; $('projDelta').textContent=`${pd>=0?'+':''}${f1(pd)}`;
+    $('wpFill').style.transition='none'; $('wpFill').style.width=d.wp.before+'%'; $('wpPct').textContent=d.wp.before+'%';
+  }
+  ov.className=''; void ov.offsetWidth;
+  ov.className='on'+(d.type==='BIG PLAY'?' bigplay':'')+(d.opp?'':' noopp')+(d.proj&&d.wp?'':' noproj');
+  fxStart(); if(cfg.sound!==false) playSound(d.type==='BIG PLAY');
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{ ov.classList.add('p1'); addConfetti(160,true); }));
+  at(1500,()=>{ ov.classList.remove('p1'); ov.classList.add('p2'); });
+  at(3100,()=>{ ov.classList.remove('p2'); ov.classList.add('p3'); });
+  at(3900,()=>{ countUp($('myScore'),d.me.before,d.me.after,1300);
+    if(d.proj&&d.wp){ countUp($('proj'),d.proj.before,d.proj.after,1300);
+      $('wpFill').style.transition=''; $('wpFill').style.width=d.wp.after+'%';
+      setTimeout(()=>$('wpPct').textContent=d.wp.after+'%',700); } });
+  at(10800,()=>{ fx.spawn=false; ov.classList.add('out'); });
+  at(11700,()=>{ ov.className=''; fxStop(); setTimeout(next,400); });
+}
+
+/* ---------- engine ---------- */
+const engine=new FantasyEngine.Engine({
+  config:cfg,
+  onAlert:showAlert,
+  onStatus:(s)=>{ try{ A.status(JSON.stringify(s)); }catch(e){} },
+  log:(m)=>{ try{ A.log(String(m)); }catch(e){} },
+});
+window.engine=engine;
+window.cmd=function(name,arg){
+  try{
+    if(name==='test') engine.testAlert();
+    else if(name==='replay') engine.replay(arg.id, !!arg.everyone).catch(e=>engine.setStatus({error:e.message}));
+    else if(name==='preview') showAlert(arg);
+  }catch(e){ engine.setStatus({error:e.message}); }
+};
+if(cfg.username) engine.start(); else engine.setStatus({phase:'error',error:'Enter your Sleeper username'});
+</script>
+</body>
+</html>

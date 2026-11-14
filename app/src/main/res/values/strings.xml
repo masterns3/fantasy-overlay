@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Fantasy Overlay</string>
+    <string name="a11y_label">Fantasy Overlay pop-ups</string>
+    <string name="a11y_desc">Lets Fantasy Overlay show touchdown celebrations on top of whatever you are watching. It does not read or collect anything on your screen.</string>
+</resources>
