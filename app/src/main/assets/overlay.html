@@ -136,6 +136,11 @@
   /* on-screen speed readout for test alerts */
   #perf{position:absolute;right:24px;bottom:18px;font:700 26px "Barlow Condensed",sans-serif;color:#fff;background:rgba(0,0,0,.6);padding:4px 12px;border-radius:6px;display:none}
   .showperf #perf{display:block}
+  /* No big headline: the play type lives in the card header instead */
+  #headline{display:none}
+  .typetag{flex:none;background:#fff;color:#0b2265;border-radius:4px;padding:2px 10px;font-size:22px;letter-spacing:2px}
+  .rival .typetag{color:#8a1328}
+  .bigplay .typetag{color:#3d1c9e}
 </style>
 </head>
 <body>
@@ -159,7 +164,7 @@
         </div>
         <div id="perf"></div>
         <div id="card">
-          <div class="chead"><span class="txt" id="cDesc"></span><span class="opptag">OPPONENT</span><span class="live">LIVE</span></div>
+          <div class="chead"><span class="txt" id="cDesc"></span><span class="typetag" id="typetag">TOUCHDOWN</span><span class="opptag">OPPONENT</span><span class="live">LIVE</span></div>
           <div class="cmain">
             <div class="me">
               <div class="tname" id="myName"></div>
@@ -322,7 +327,7 @@ function runAlert(d){
   const initials=p.name.split(/\s+/).map(w=>w.replace(/[^A-Za-z]/g,'')[0]||'').join('').slice(0,2).toUpperCase();
   const playerId = p.id || p.player_id || p.sleeper_id || '';
 
-  $('headline').textContent=d.type; $('headline').dataset.text=d.type;
+  $('typetag').textContent=d.type;
   $('ini').textContent=initials;
   $('num').textContent=p.num!=='' ? `#${p.num}` : '';
   $('avatar').style.setProperty('--c1',p.c1||'#0b2a6e');
@@ -370,14 +375,14 @@ function runAlert(d){
   if(!lite) fxStart(); if(cfg.sound!==false){ if(rival) playWomp(); else playSound(d.type==='BIG PLAY'); }
   requestAnimationFrame(()=>requestAnimationFrame(()=>{ ov.classList.add('p1'); if(!lite) addConfetti(rival?40:90,true); }));
   if(rival) fx.spawn=false;   // no confetti rain for the bad guys
-  at(1500,()=>{ ov.classList.remove('p1'); ov.classList.add('p2'); });
-  at(3100,()=>{ ov.classList.remove('p2'); ov.classList.add('p3'); });
-  at(3900,()=>{ countUp($('myScore'),main.before,main.after,1300);
+  at(250,()=>{ ov.classList.remove('p1'); ov.classList.add('p2'); });
+  at(1900,()=>{ ov.classList.remove('p2'); ov.classList.add('p3'); });
+  at(2700,()=>{ countUp($('myScore'),main.before,main.after,1300);
     if(d.proj&&d.wp){ countUp($('proj'),d.proj.before,d.proj.after,1300);
       $('wpFill').style.transition=''; $('wpFill').style.width=d.wp.after+'%';
       setTimeout(()=>$('wpPct').textContent=d.wp.after+'%',700); } });
-  at(10800,()=>{ fx.spawn=false; ov.classList.add('out'); });
-  at(11700,()=>{ perfStop(d); ov.className=''; fxStop(); setTimeout(next,400); });
+  at(9600,()=>{ fx.spawn=false; ov.classList.add('out'); });
+  at(10500,()=>{ perfStop(d); ov.className=''; fxStop(); setTimeout(next,400); });
 }
 
 /* ---------- engine ---------- */
