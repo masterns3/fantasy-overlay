@@ -14,7 +14,7 @@ const players = {
   '8146': { full_name: 'Garrett Wilson', last_name: 'Wilson', position: 'WR', team: 'NYJ', number: 5 },
   '5859': { full_name: 'A.J. Brown', last_name: 'Brown', position: 'WR', team: 'NE', number: 1 },
   '5995': { full_name: 'Justice Hill', last_name: 'Hill', position: 'RB', team: 'BAL', number: 43 },
-  '7001': { full_name: 'Opp Guy', last_name: 'Guy', position: 'WR', team: 'WAS', number: 14 },
+  '7001': { full_name: 'Stefon Diggs', last_name: 'Diggs', position: 'WR', team: 'WAS', number: 14 },
 };
 const espnRosters = {
   nyg: [{ id: '4361050', fullName: 'Isaiah Likely', lastName: 'Likely', jersey: '9', position: { abbreviation: 'TE' } },
@@ -43,6 +43,10 @@ const liveExtra = [
   { id: 'p6', type: { text: 'Pass Reception' }, text: 'J.Dart pass short to I.Likely for 8 yards.', statYardage: 8, participants: [ath(5000001, 'passer'), ath(4361050, 'receiver')] },
   // Skattebo TD (not mine) -> nothing
   { id: 'p7', type: { text: 'Rushing Touchdown' }, text: 'C.Skattebo right guard for 1 yard, TOUCHDOWN.', scoringPlay: true, statYardage: 1, participants: [ath(4696981, 'rusher'), ath(4696981, 'scorer')] },
+  // Opponent's Diggs: 25 yd catch (no alert: opponent TDs only), then 32 yd TD (opponent alert)
+  { id: 'p8', type: { text: 'Pass Reception' }, text: 'J.Daniels pass to S.Diggs for 25 yards.', statYardage: 25, participants: [ath(4426348, 'passer'), ath(2976212, 'receiver')] },
+  { id: 'p9', type: { text: 'Passing Touchdown' }, text: '(No Huddle, Shotgun) J.Daniels pass short middle to S.Diggs for 32 yards, TOUCHDOWN.', scoringPlay: true, scoreValue: 6, statYardage: 32,
+    participants: [ath(4426348, 'passer'), ath(2976212, 'receiver'), ath(2976212, 'scorer'), ath(5081335, 'kicker')] },
 ];
 
 const scoreboard = { events: [
@@ -104,10 +108,12 @@ function makeFetch() {
   // new plays arrive
   plays = plays.concat(liveExtra);
   const found = await eng.pollGame(g);
-  assert.deepStrictEqual(found.map((a) => a.type + ':' + a.hero.name + ':' + a.desc), [
-    'TOUCHDOWN:Isaiah Likely:66 yd pass from J. Dart',
-    'BIG PLAY:Isaiah Likely:24 yd catch from J. Dart',
+  assert.deepStrictEqual(found.map((a) => a.side + ':' + a.type + ':' + a.hero.name + ':' + a.desc), [
+    'me:TOUCHDOWN:Isaiah Likely:66 yd pass from J. Dart',
+    'me:BIG PLAY:Isaiah Likely:24 yd catch from J. Dart',
+    'opp:TOUCHDOWN:Stefon Diggs:32 yd pass from J. Daniels',
   ]);
+  assert.strictEqual(found[2].delta, 9.7, 'opponent TD: 6 + 3.2 + 0.5');
   assert.strictEqual(found[0].delta, 13.1, '6 TD + 6.6 yds + 0.5 rec');
   assert.strictEqual(found[1].delta, 2.9);
   // re-poll does not duplicate
@@ -115,12 +121,17 @@ function makeFetch() {
 
   // spoiler delay + spacing
   found.forEach((a) => eng.enqueue(a));
-  assert.strictEqual(timers.length, 2);
+  assert.strictEqual(timers.length, 3);
   assert.strictEqual(timers[0].at - t, 30000, '30s spoiler delay');
   assert.ok(timers[1].at - timers[0].at >= 13000, 'alerts spaced out');
   timers.sort((a, b) => a.at - b.at).forEach((x) => { t = x.at; x.fn(); });
   timers.length = 0;
-  assert.strictEqual(alerts.length, 2);
+  assert.strictEqual(alerts.length, 3);
+  const o = alerts[2];
+  assert.strictEqual(o.side, 'opp');
+  assert.strictEqual(o.opp.before, 43); assert.strictEqual(o.opp.after, 52.7);
+  assert.strictEqual(o.me.before, 39.2, 'my score includes my two earlier alerts');
+  assert.ok(o.wp.after < o.wp.before, 'my win prob drops on opponent TD: ' + JSON.stringify(o.wp));
   const a0 = alerts[0];
   assert.strictEqual(a0.me.before, 23.2); assert.strictEqual(a0.me.after, 36.3);
   assert.strictEqual(a0.opp.name, 'La Porta Potties'); assert.strictEqual(a0.opp.score, 43);
@@ -150,15 +161,22 @@ function makeFetch() {
 
   // replay in demo mode celebrates everyone's TDs/big plays in the game
   const demo = await eng.replay('401873052', true);
-  assert.deepStrictEqual(demo.map((a) => a.hero.name), ['Stefon Diggs', 'Isaiah Likely', 'Isaiah Likely', 'Cam Skattebo']);
+  assert.deepStrictEqual(demo.map((a) => a.hero.name), ['Stefon Diggs', 'Isaiah Likely', 'Isaiah Likely', 'Cam Skattebo', 'Stefon Diggs', 'Stefon Diggs']);
   const mineOnly = await eng.replay('401873052', false);
-  assert.deepStrictEqual(mineOnly.map((a) => a.type), ['TOUCHDOWN', 'BIG PLAY']);
+  assert.deepStrictEqual(mineOnly.map((a) => a.side + ':' + a.type), ['me:TOUCHDOWN', 'me:BIG PLAY', 'opp:TOUCHDOWN']);
+  // opponent alerts can be turned off
+  eng.cfg.oppAlerts = false;
+  assert.deepStrictEqual((await eng.replay('401873052', false)).map((a) => a.side), ['me', 'me']);
+  eng.cfg.oppAlerts = true;
 
   // test alert uses real league data
   alerts.length = 0; eng.testAlert();
   assert.strictEqual(alerts[0].league, 'Utah Quakers');
   assert.ok(eng.me.starters.map((id) => eng.players[id].name).includes(alerts[0].player.name));
 
+  alerts.length = 0; eng.testAlert('opp');
+  assert.strictEqual(alerts[0].side, 'opp'); assert.strictEqual(alerts[0].player.name, 'Stefon Diggs');
   console.log('All engine tests passed ✔');
+  console.log('Opponent alert payload:', JSON.stringify(o));
   console.log('Sample alert payload:', JSON.stringify(a0, null, 1));
 })().catch((e) => { console.error('FAILED:', e); process.exit(1); });

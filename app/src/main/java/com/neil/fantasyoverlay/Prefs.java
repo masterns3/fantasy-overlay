@@ -8,7 +8,7 @@ final class Prefs {
     private static final String FILE = "fantasy_overlay";
     static final String DEFAULT_CONFIG =
             "{\"username\":\"neils011\",\"leagueId\":\"\",\"bigPlayYards\":20,\"qbBigPlayYards\":40,"
-            + "\"delaySec\":30,\"benchAlerts\":false,\"sound\":true}";
+            + "\"delaySec\":30,\"benchAlerts\":false,\"oppAlerts\":true,\"sound\":true}";
 
     private Prefs() {}
 

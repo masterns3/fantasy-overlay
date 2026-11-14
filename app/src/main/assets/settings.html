@@ -52,14 +52,16 @@
     <div class="row" data-step="league"><span class="lbl">League</span><span class="val" id="v-league"></span></div>
     <div class="row" data-step="bigPlayYards"><span class="lbl">Big play = run/catch of</span><span class="val" id="v-bigPlayYards"></span></div>
     <div class="row" data-step="delaySec"><span class="lbl">Spoiler delay</span><span class="val" id="v-delaySec"></span></div>
+    <div class="row" data-step="oppAlerts"><span class="lbl">Opponent touchdowns</span><span class="val" id="v-oppAlerts"></span></div>
     <div class="row" data-step="benchAlerts"><span class="lbl">Bench players too</span><span class="val" id="v-benchAlerts"></span></div>
-    <div class="row" data-step="sound"><span class="lbl">Horn sound</span><span class="val" id="v-sound"></span></div>
+    <div class="row" data-step="sound"><span class="lbl">Sounds (horn / sad trombone)</span><span class="val" id="v-sound"></span></div>
     <div class="hint">Pop-up arriving before you see the play? Raise the delay. Arriving late? Lower it.</div>
     <div class="row btn primary" data-act="save">SAVE &amp; RESTART</div>
     <div class="two">
-      <div class="row btn" data-act="test">▶ TEST ALERT</div>
-      <div class="row btn" data-act="replay">▶ REPLAY GAME</div>
+      <div class="row btn" data-act="test">▶ TEST MY TD</div>
+      <div class="row btn" data-act="testopp">▶ TEST OPPONENT TD</div>
     </div>
+    <div class="row btn" data-act="replay">▶ REPLAY GAME</div>
     <div class="row" data-step="replayGame"><span class="lbl">Replay</span><span class="val" id="v-replayGame"></span></div>
     <div class="row" data-step="replayMode"><span class="lbl">Replay plays by</span><span class="val" id="v-replayMode"></span></div>
   </div>
@@ -91,7 +93,7 @@ const A = window.App || { getConfig:()=>'{"username":"neils011"}', saveConfig(){
   overlayGranted:()=>false, a11yOn:()=>false, hostRunning:()=>false, openOverlaySettings(){}, openA11ySettings(){}, version:()=>'dev' };
 const $ = (id)=>document.getElementById(id);
 let cfg = {}; try { cfg = JSON.parse(A.getConfig()); } catch(e) {}
-cfg = Object.assign({ username:'neils011', leagueId:'', bigPlayYards:20, qbBigPlayYards:40, delaySec:30, benchAlerts:false, sound:true }, cfg);
+cfg = Object.assign({ username:'neils011', leagueId:'', bigPlayYards:20, qbBigPlayYards:40, delaySec:30, benchAlerts:false, oppAlerts:true, sound:true }, cfg);
 let status = {};
 const local = { replayGame: 0, replayMode: 'mine' };
 $('ver').textContent = 'v' + A.version() + ' · arrows to move, ◀ ▶ to change, OK to select';
@@ -104,6 +106,7 @@ const steps = {
   delaySec:    { get:()=>cfg.delaySec+' sec', move:(d)=>{ cfg.delaySec=Math.min(120,Math.max(0,cfg.delaySec+5*d)); } },
   benchAlerts: { get:()=>cfg.benchAlerts?'On':'Off', move:()=>{ cfg.benchAlerts=!cfg.benchAlerts; } },
   sound:       { get:()=>cfg.sound?'On':'Off', move:()=>{ cfg.sound=!cfg.sound; } },
+  oppAlerts:   { get:()=>cfg.oppAlerts?'On':'Off', move:()=>{ cfg.oppAlerts=!cfg.oppAlerts; } },
   replayGame:  { get:()=>{ const G=replayList(); return G.length? G[local.replayGame%G.length].label : 'no games started this week yet'; },
                  move:(d)=>{ const n=replayList().length; if(n) local.replayGame=(local.replayGame+d+n)%n; } },
   replayMode:  { get:()=>local.replayMode==='mine'?'My players only':'Everyone (demo)', move:()=>{ local.replayMode=local.replayMode==='mine'?'all':'mine'; } },
@@ -145,7 +148,8 @@ function activate(el){
   if (k==='username') { const inp=$('username'); inp.focus(); inp.click(); return; }
   if (el.dataset.step) { steps[el.dataset.step].move(1); render(); return; }
   if (act==='save') return save();
-  if (act==='test') return send('test', null, 'Test alert sent — watch the screen');
+  if (act==='test') return send('test', {side:'me'}, 'Test alert sent — watch the screen');
+  if (act==='testopp') return send('test', {side:'opp'}, 'Opponent test sent — brace yourself');
   if (act==='replay') { const G=replayList(); if(!G.length) return toast('No games to replay yet');
     const g=G[local.replayGame%G.length]; return send('replay', {id:g.id, everyone: local.replayMode!=='mine'}, 'Replaying '+g.label.replace('★ ','')+'…'); }
   if (act==='perm') return A.openOverlaySettings();

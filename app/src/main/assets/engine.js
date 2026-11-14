@@ -22,6 +22,7 @@
     qbBigPlayYards: 40,    // QB completion of this many yards = BIG PLAY
     delaySec: 30,          // spoiler delay: wait this long after ESPN reports the play
     benchAlerts: false,    // also celebrate bench players
+    oppAlerts: true,       // show a (sad) alert when your opponent's starters score a TD
     sound: true,
     pollMs: 8000,
   };
@@ -66,6 +67,7 @@
 
       this.players = {};       // sleeperId -> {id,name,last,pos,team,num,espnId}
       this.byEspn = {};        // espnId -> player (my roster)
+      this.oppByEspn = {};     // espnId -> player (opponent starters)
       this.espnRosters = {};   // ESPN abbr -> {at, byName, byLastNum, byId}
       this.teamColors = {};    // Sleeper abbr -> {c1,c2}
       this.games = {};         // eventId -> game
@@ -74,6 +76,7 @@
       this.seen = new Set();   // alert keys already emitted
       this.projections = {}; this.projAt = 0;
       this.localAdj = 0;       // points from alerts that Sleeper hasn't reflected yet
+      this.oppAdj = 0;
       this.lastQueuedAt = 0;
       this.status = { phase: 'idle' };
       this.running = false;
@@ -126,6 +129,7 @@
       const me = ms.find((m) => m.roster_id === this.myRosterId);
       const opp = me && me.matchup_id != null ? ms.find((m) => m.matchup_id === me.matchup_id && m.roster_id !== me.roster_id) : null;
       const prev = this.me ? this.me.points : null;
+      const prevOpp = this.opp ? this.opp.points : null;
       const clean = (a) => (a || []).filter((x) => x && x !== '0');
       this.me = {
         name: this.teamNames[this.userId] || 'My Team',
@@ -139,6 +143,7 @@
         starters: clean(opp.starters),
       } : null;
       if (prev !== null && this.me.points !== prev) this.localAdj = 0; // Sleeper caught up
+      if (prevOpp !== null && this.opp && this.opp.points !== prevOpp) this.oppAdj = 0;
       await this.loadPlayers(this.me.roster.concat(this.opp ? this.opp.starters : []));
       this.setStatus({
         team: this.me.name,
@@ -188,7 +193,8 @@
     }
 
     async mapEspnIds() {
-      for (const id of this.me.roster) {
+      const oppIds = this.opp ? this.opp.starters : [];
+      for (const id of this.me.roster.concat(oppIds)) {
         const p = this.players[id];
         if (!p || p.espnId || !p.team || p.pos === 'DEF') continue;
         try {
@@ -199,6 +205,8 @@
       }
       this.byEspn = {};
       this.me.roster.forEach((id) => { const p = this.players[id]; if (p && p.espnId) this.byEspn[p.espnId] = p; });
+      this.oppByEspn = {};
+      oppIds.forEach((id) => { const p = this.players[id]; if (p && p.espnId) this.oppByEspn[p.espnId] = p; });
       const unmatched = this.me.roster.map((id) => this.players[id]).filter((p) => p && p.pos !== 'DEF' && !p.espnId).map((p) => p.name);
       this.setStatus({ unmatched });
     }
@@ -238,7 +246,8 @@
       return (all || this.cfg.benchAlerts ? this.me.roster : this.me.starters);
     }
     liveGames() {
-      const teams = new Set(this.watchedIds().map((id) => this.players[id] && this.players[id].team).filter(Boolean));
+      const ids = this.watchedIds().concat(this.cfg.oppAlerts && this.opp ? this.opp.starters : []);
+      const teams = new Set(ids.map((id) => this.players[id] && this.players[id].team).filter(Boolean));
       return Object.values(this.games).filter((g) => g.state === 'in' && g.teams.some((t) => teams.has(t)));
     }
 
@@ -266,7 +275,7 @@
       const from = Math.max(0, this.cursor[g.id] - 3);   // re-check last few plays (reviews, late TD flags)
       const { count, items } = await this.fetchPlays(g, from);
       this.cursor[g.id] = count;
-      return items.map((p) => this.evaluate(p, g)).filter(Boolean);
+      return this.evaluateBoth(items, g, {});
     }
 
     // ---------- play detection ----------
@@ -281,8 +290,12 @@
         id: athleteId(p.athlete && (p.athlete.$ref || p.athlete.id)), type: p.type,
       })).filter((p) => p.id);
 
+      const opp = opts.side === 'opp';
       let lookup;
-      if (opts.everyone) {
+      if (opp) {
+        const watch = new Set((this.opp ? this.opp.starters : []).map((id) => this.players[id] && this.players[id].espnId).filter(Boolean));
+        lookup = (eid) => (watch.has(eid) ? this.oppByEspn[eid] : null);
+      } else if (opts.everyone) {
         lookup = (eid) => opts.everyone[eid] || null;
       } else {
         const watch = new Set(this.watchedIds(opts.all).map((id) => this.players[id] && this.players[id].espnId).filter(Boolean));
@@ -296,16 +309,18 @@
       const yds = Number(play.statYardage) || 0;
       const roles = {};
       mine.forEach((m) => { (roles[m.id] = roles[m.id] || new Set()).add(m.type); });
+      if (opp && !isTD) return null;               // opponent: touchdowns only
       const big = !isTD && Object.values(roles).some((r) =>
         ((r.has('rusher') || r.has('receiver')) && yds >= this.cfg.bigPlayYards) ||
         (r.has('passer') && yds >= this.cfg.qbBigPlayYards));
       if (!isTD && !big) return null;
       if (/interception|fumble|sack/i.test(type) && !isTD) return null;
 
-      const key = play.id + (isTD ? ':td' : ':big');
-      if (this.seen.has(key) || (!isTD && this.seen.has(play.id + ':td'))) return null;
+      const pre = (opp ? 'opp:' : '') + play.id;
+      const key = pre + (isTD ? ':td' : ':big');
+      if (this.seen.has(key) || (!isTD && this.seen.has(pre + ':td'))) return null;
       this.seen.add(key);
-      if (isTD) this.seen.add(play.id + ':big');
+      if (isTD) this.seen.add(pre + ':big');
 
       const heroId = (mine.find((m) => m.type === 'scorer') || mine.find((m) => m.type === 'receiver' || m.type === 'rusher') || mine[0]).id;
       const hero = lookup(heroId);
@@ -329,7 +344,16 @@
       else if (hr.has('passer')) desc = yds + ' yd ' + (isTD ? 'TD pass' : 'pass') + (target ? ' to ' + spaceAbbr(target) : '');
       else desc = type;
 
-      return { key, type: isTD ? 'TOUCHDOWN' : 'BIG PLAY', hero, desc, delta: r1(delta), game: g && g.name, playId: play.id };
+      return { key, side: opp ? 'opp' : 'me', type: isTD ? 'TOUCHDOWN' : 'BIG PLAY', hero, desc, delta: r1(delta), game: g && g.name, playId: play.id };
+    }
+
+    evaluateBoth(items, g, opts) {
+      const out = [];
+      items.forEach((p) => {
+        const a = this.evaluate(p, g, opts); if (a) out.push(a);
+        if (this.cfg.oppAlerts && this.opp && !opts.everyone) { const b = this.evaluate(p, g, Object.assign({}, opts, { side: 'opp' })); if (b) out.push(b); }
+      });
+      return out;
     }
 
     // ---------- projections / win probability ----------
@@ -350,7 +374,7 @@
       const diff = a.proj - b.proj;
       let wp = frac <= 0 ? (diff > 0 ? 100 : diff < 0 ? 0 : 50) : Math.round(phi(diff / Math.max(3, 26 * Math.sqrt(frac))) * 100);
       if (frac > 0) wp = Math.min(99, Math.max(1, wp));
-      return { proj: a.proj, wp };
+      return { proj: a.proj, oppProj: b.proj, wp };
     }
 
     // ---------- alert delivery ----------
@@ -362,25 +386,36 @@
     }
 
     buildPayload(a) {
-      const before = r1(this.me.points + (a.test || a.replay ? 0 : this.localAdj));
-      const after = r1(before + a.delta);
-      const oppPts = this.opp ? r1(this.opp.points) : null;
-      const w0 = this.winProb(before, oppPts || 0), w1 = this.winProb(after, oppPts || 0);
+      const live = !(a.test || a.replay);
       const p = a.hero || {};
       const col = this.teamColors[p.team] || { c1: '#0b2a6e', c2: '#2f66d6' };
-      return {
-        type: a.type, league: this.league ? this.league.name : '', desc: a.desc,
-        player: { name: p.name || '', pos: p.pos || '', team: p.team || '', num: p.num || '', c1: col.c1, c2: col.c2 },
-        me: { name: this.me.name, before, after },
-        opp: this.opp ? { name: this.opp.name, score: oppPts } : null,
+      const player = { name: p.name || '', pos: p.pos || '', team: p.team || '', num: p.num || '', c1: col.c1, c2: col.c2 };
+      const myNow = r1(this.me.points + (live ? this.localAdj : 0));
+      const oppNow = this.opp ? r1(this.opp.points + (live ? this.oppAdj : 0)) : null;
+      const base = { type: a.type, side: a.side || 'me', league: this.league ? this.league.name : '', desc: a.desc, player };
+      if (a.side === 'opp') {
+        const oppAfter = r1(oppNow + a.delta);
+        const w0 = this.winProb(myNow, oppNow), w1 = this.winProb(myNow, oppAfter);
+        return Object.assign(base, {
+          me: { name: this.me.name, before: myNow, after: myNow },
+          opp: { name: this.opp.name, score: oppNow, before: oppNow, after: oppAfter },
+          proj: w0 ? { before: r1(w0.oppProj), after: r1(w1.oppProj) } : null,
+          wp: w0 ? { before: w0.wp, after: w1.wp } : null,
+        });
+      }
+      const after = r1(myNow + a.delta);
+      const w0 = this.winProb(myNow, oppNow || 0), w1 = this.winProb(after, oppNow || 0);
+      return Object.assign(base, {
+        me: { name: this.me.name, before: myNow, after },
+        opp: this.opp ? { name: this.opp.name, score: oppNow } : null,
         proj: w0 ? { before: r1(w0.proj), after: r1(w1.proj) } : null,
         wp: w0 ? { before: w0.wp, after: w1.wp } : null,
-      };
+      });
     }
 
     fire(a) {
       const payload = this.buildPayload(a);
-      if (!a.test && !a.replay) this.localAdj += a.delta;
+      if (!a.test && !a.replay) { if (a.side === 'opp') this.oppAdj += a.delta; else this.localAdj += a.delta; }
       this.setStatus({ lastAlert: { at: this.now(), type: a.type, player: payload.player.name, desc: a.desc } });
       this.onAlert(payload);
     }
@@ -412,7 +447,7 @@
             lastState = this.now();
             const st = await this.j(SLEEPER + '/state/nfl');
             const wk = st.display_week || st.week;
-            if (wk !== this.week) { this.week = wk; this.cursor = {}; this.seen = new Set(); this.projAt = 0; this.localAdj = 0; }
+            if (wk !== this.week) { this.week = wk; this.cursor = {}; this.seen = new Set(); this.projAt = 0; this.localAdj = 0; this.oppAdj = 0; }
           }
           if (this.now() - lastSlow > 60e3) {
             lastSlow = this.now();
@@ -433,9 +468,10 @@
     }
 
     // ---------- test + replay ----------
-    testAlert() {
+    testAlert(side) {
       if (!this.me) throw new Error('Not connected to Sleeper yet');
-      const ids = this.me.starters.filter((id) => this.players[id] && !/DEF|K/.test(this.players[id].pos));
+      const opp = side === 'opp' && this.opp;
+      const ids = (opp ? this.opp.starters : this.me.starters).filter((id) => this.players[id] && !/DEF|K/.test(this.players[id].pos));
       const p = this.players[ids[Math.floor(Math.random() * ids.length)]] || { name: 'Test Player', pos: 'WR', team: '', num: '' };
       const S = this.scoring || {};
       const yds = 15 + Math.floor(Math.random() * 55);
@@ -443,7 +479,7 @@
         : p.pos === 'RB' ? yds * (S.rush_yd || 0.1) + (S.rush_td || 6)
           : (S.rec || 0) + yds * (S.rec_yd || 0.1) + (S.rec_td || 6);
       const desc = p.pos === 'QB' ? yds + ' yd TD pass' : p.pos === 'RB' ? yds + ' yd TD run' : yds + ' yd pass';
-      this.fire({ type: 'TOUCHDOWN', hero: p, desc: desc + ' · test', delta: r1(delta), test: true });
+      this.fire({ type: 'TOUCHDOWN', side: opp ? 'opp' : 'me', hero: p, desc: desc + ' · test', delta: r1(delta), test: true });
     }
 
     // Run every play of a game (finished or live) through the detector, firing alerts back to back.
@@ -461,7 +497,7 @@
       }
       const { items } = await this.fetchPlays(g, 0);
       const saved = this.seen; this.seen = new Set();
-      const alerts = items.map((p) => this.evaluate(p, g, opts)).filter(Boolean);
+      const alerts = this.evaluateBoth(items, g, opts);
       this.seen = saved;
       this.lastQueuedAt = 0;
       alerts.forEach((a, i) => { a.replay = true; this.setTimer(() => this.fire(a), 500 + i * 14000); });

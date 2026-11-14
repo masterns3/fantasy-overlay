@@ -59,7 +59,7 @@
   .avatar .ini{font-family:Anton;font-size:150px;color:#fff;line-height:1;text-shadow:0 6px 0 rgba(0,0,0,.25)}
   .avatar .num{font-family:"Barlow Condensed";font-weight:800;font-size:44px;color:rgba(255,255,255,.85);letter-spacing:2px}
   #pname{display:inline-block;width:auto;text-align:center;font-size:120px;margin-top:26px;letter-spacing:2px}
-  #pmeta{text-align:center;font-weight:700;font-size:36px;letter-spacing:6px;color:#bcd3ff;margin-top:12px}
+  #pmeta{text-transform:uppercase;text-align:center;font-weight:700;font-size:36px;letter-spacing:6px;color:#bcd3ff;margin-top:12px}
 
   #card{position:absolute;left:900px;top:300px;width:930px;padding:34px 44px 36px;border-radius:14px;
     background:linear-gradient(180deg,rgba(28,66,160,.92),rgba(12,34,98,.94));
@@ -96,6 +96,23 @@
   /* Big play colour variant */
   .bigplay .backdrop{background:radial-gradient(ellipse at 50% 62%,#7b3cf0 0%,#3d1c9e 40%,#1b0d5c 72%,#0b0533 100%)}
   .bigplay .live{background:#9a5cff}
+  .opptag{display:none;flex:none;background:#ff4d5e;color:#fff;border-radius:4px;padding:2px 10px;font-size:22px;letter-spacing:2px}
+  /* Opponent TD ("bad news") variant */
+  .rival .backdrop{background:radial-gradient(ellipse at 50% 62%,#d6324a 0%,#8a1328 40%,#4a0816 72%,#22030a 100%)}
+  .rival #card{background:linear-gradient(180deg,rgba(130,22,44,.93),rgba(60,8,22,.95));border-color:rgba(255,150,165,.55);box-shadow:0 30px 60px rgba(0,0,0,.5),0 0 60px rgba(255,70,100,.35)}
+  .rival .chead{color:#ffc2cb}
+  .rival .live{background:#a8324a}
+  .rival .opptag{display:inline-block}
+  .rival #delta{background:#ff4d5e;color:#fff;box-shadow:0 0 24px rgba(255,77,94,.75)}
+  .rival #status{color:#ff9aa6}
+  .rival #oppScore{color:#ffc2cb}
+  .rival .vs{color:#d78a97}
+  .rival .lbl,.rival #pmeta{color:#ffb3bd}
+  .rival .pdelta{color:#ff9aa6}
+  .rival #wpFill{background:linear-gradient(90deg,#ff4d5e,#ff9a5c);box-shadow:0 0 18px rgba(255,77,94,.7)}
+  .rival .ringwrap .solid{border-color:#ffe3e7;box-shadow:0 0 30px rgba(255,120,140,.9),inset 0 0 25px rgba(255,120,140,.6)}
+  .rival .ringwrap .glow{background:radial-gradient(circle,rgba(255,110,130,.35),transparent 65%)}
+  .rival .burst i{border-color:rgba(255,190,200,.7)}
 </style>
 </head>
 <body>
@@ -114,7 +131,7 @@
           <div id="pmeta"></div>
         </div>
         <div id="card">
-          <div class="chead"><span class="txt" id="cDesc"></span><span class="live">LIVE</span></div>
+          <div class="chead"><span class="txt" id="cDesc"></span><span class="opptag">OPPONENT</span><span class="live">LIVE</span></div>
           <div class="cmain">
             <div class="me">
               <div class="tname" id="myName"></div>
@@ -125,8 +142,8 @@
             <div class="opp"><div class="tname" id="oppName"></div><div id="oppScore"></div></div>
           </div>
           <div class="cfoot">
-            <div class="proj"><div class="lbl">PROJECTED</div><div class="pval"><span id="proj"></span><span class="pdelta" id="projDelta"></span></div></div>
-            <div class="wp"><div class="wpl"><span class="lbl">WIN PROBABILITY</span><span id="wpPct"></span></div><div class="bar"><div id="wpFill"></div></div></div>
+            <div class="proj"><div class="lbl" id="projLbl">PROJECTED</div><div class="pval"><span id="proj"></span><span class="pdelta" id="projDelta"></span></div></div>
+            <div class="wp"><div class="wpl"><span class="lbl" id="wpLbl">WIN PROBABILITY</span><span id="wpPct"></span></div><div class="bar"><div id="wpFill"></div></div></div>
           </div>
         </div>
       </div>
@@ -223,6 +240,31 @@ function playSound(big){
   }catch(e){}
 }
 
+function playWomp(){
+  try{
+    actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+    const t=actx.currentTime, out=actx.createGain(); out.gain.value=0.45; out.connect(actx.destination);
+    const notes=[[311,0,0.45],[294,0.5,0.45],[277,1.0,0.45],[262,1.5,1.4]];
+    notes.forEach(([f,o,len],k)=>{
+      const osc=actx.createOscillator(); osc.type='sawtooth';
+      osc.frequency.setValueAtTime(f,t+o);
+      if(k===3){ const lfo=actx.createOscillator(), lg=actx.createGain(); lfo.frequency.value=6; lg.gain.value=7; lfo.connect(lg); lg.connect(osc.frequency); lfo.start(t+o+0.2); lfo.stop(t+o+len);
+                 osc.frequency.linearRampToValueAtTime(f*0.94,t+o+len); }
+      const lp=actx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=1100; lp.Q.value=4;
+      const g=actx.createGain(); g.gain.setValueAtTime(0.0001,t+o); g.gain.exponentialRampToValueAtTime(0.16,t+o+0.06);
+      g.gain.setValueAtTime(0.16,t+o+len-0.12); g.gain.exponentialRampToValueAtTime(0.0001,t+o+len);
+      osc.connect(lp); lp.connect(g); g.connect(out); osc.start(t+o); osc.stop(t+o+len+0.05);
+    });
+  }catch(e){}
+}
+function rivalLine(me,before,after){
+  const b=me-before, a=me-after;
+  if(a>0) return '▼ Cuts your lead to '+f1(a);
+  if(a===0) return '▼ They tie it up';
+  if(b>0||b===0) return '▼ They take the lead by '+f1(-a);
+  return '▼ They extend their lead to '+f1(-a);
+}
+
 /* ---------- native bridge ---------- */
 const A=window.Android||{getConfig:()=>JSON.stringify({username:'neils011'}),expand(){},collapse(){},status(){},log:(m)=>console.log(m)};
 let cfg={}; try{ cfg=JSON.parse(A.getConfig()||'{}'); }catch(e){}
@@ -241,23 +283,32 @@ function runAlert(d){
   $('headline').textContent=d.type;
   $('ini').textContent=initials; $('num').textContent=p.num!==''?`#${p.num}`:'';
   $('avatar').style.setProperty('--c1',p.c1||'#0b2a6e'); $('avatar').style.setProperty('--c2',p.c2||'#2f66d6');
-  $('pname').textContent=p.name; fitText($('pname'),740,120); $('pmeta').textContent=[p.pos,p.team].filter(Boolean).join(' · ');
+  const rival=d.side==='opp';
+  $('pname').textContent=p.name; fitText($('pname'),740,120);
+  $('pmeta').textContent=[p.pos,p.team].filter(Boolean).join(' · ')+(rival&&d.opp?' · '+d.opp.name:'');
+  $('projLbl').textContent=rival?'THEIR PROJECTED':'PROJECTED';
+  $('wpLbl').textContent=rival?'YOUR WIN PROBABILITY':'WIN PROBABILITY';
   $('cDesc').textContent=[d.league,d.desc].filter(Boolean).join(' · ');
-  $('myName').textContent=d.me.name; $('myScore').textContent=f1(d.me.before);
-  const delta=d.me.after-d.me.before; $('delta').textContent=`${delta>=0?'+':''}${f1(delta)}`;
-  if(d.opp){ $('oppName').textContent=d.opp.name; $('oppScore').textContent=f1(d.opp.score); $('status').textContent=statusLine({me:d.me,opp:d.opp}); }
+  // the big score on the left is always the team that just scored
+  const main=rival?{name:d.opp.name,before:d.opp.before,after:d.opp.after}:d.me;
+  const side=rival?{name:d.me.name,score:d.me.before}:d.opp;
+  $('myName').textContent=main.name; $('myScore').textContent=f1(main.before);
+  const delta=main.after-main.before; $('delta').textContent=`${delta>=0?'+':''}${f1(delta)}`;
+  if(side){ $('oppName').textContent=side.name; $('oppScore').textContent=f1(side.score);
+    $('status').textContent=rival?rivalLine(d.me.before,d.opp.before,d.opp.after):statusLine({me:d.me,opp:d.opp}); }
   else $('status').textContent='';
   if(d.proj&&d.wp){
     $('proj').textContent=f1(d.proj.before); const pd=d.proj.after-d.proj.before; $('projDelta').textContent=`${pd>=0?'+':''}${f1(pd)}`;
     $('wpFill').style.transition='none'; $('wpFill').style.width=d.wp.before+'%'; $('wpPct').textContent=d.wp.before+'%';
   }
   ov.className=''; void ov.offsetWidth;
-  ov.className='on'+(d.type==='BIG PLAY'?' bigplay':'')+(d.opp?'':' noopp')+(d.proj&&d.wp?'':' noproj');
-  fxStart(); if(cfg.sound!==false) playSound(d.type==='BIG PLAY');
-  requestAnimationFrame(()=>requestAnimationFrame(()=>{ ov.classList.add('p1'); addConfetti(160,true); }));
+  ov.className='on'+(rival?' rival':d.type==='BIG PLAY'?' bigplay':'')+(side?'':' noopp')+(d.proj&&d.wp?'':' noproj');
+  fxStart(); if(cfg.sound!==false){ if(rival) playWomp(); else playSound(d.type==='BIG PLAY'); }
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{ ov.classList.add('p1'); addConfetti(rival?60:160,true); }));
+  if(rival) fx.spawn=false;   // no confetti rain for the bad guys
   at(1500,()=>{ ov.classList.remove('p1'); ov.classList.add('p2'); });
   at(3100,()=>{ ov.classList.remove('p2'); ov.classList.add('p3'); });
-  at(3900,()=>{ countUp($('myScore'),d.me.before,d.me.after,1300);
+  at(3900,()=>{ countUp($('myScore'),main.before,main.after,1300);
     if(d.proj&&d.wp){ countUp($('proj'),d.proj.before,d.proj.after,1300);
       $('wpFill').style.transition=''; $('wpFill').style.width=d.wp.after+'%';
       setTimeout(()=>$('wpPct').textContent=d.wp.after+'%',700); } });
@@ -275,12 +326,13 @@ const engine=new FantasyEngine.Engine({
 window.engine=engine;
 window.cmd=function(name,arg){
   try{
-    if(name==='test') engine.testAlert();
+    if(name==='test') engine.testAlert(arg&&arg.side);
     else if(name==='replay') engine.replay(arg.id, !!arg.everyone).catch(e=>engine.setStatus({error:e.message}));
-    else if(name==='preview') showAlert(arg);
+    else if(name==='preview'){ queue.length=0; busy=true; A.expand(); fit(); runAlert(arg); }  // interrupts, for previews
   }catch(e){ engine.setStatus({error:e.message}); }
 };
-if(cfg.username) engine.start(); else engine.setStatus({phase:'error',error:'Enter your Sleeper username'});
+if(!window.Android && !/[?&]live/.test(location.search)) engine.setStatus({phase:'preview'});
+else if(cfg.username) engine.start(); else engine.setStatus({phase:'error',error:'Enter your Sleeper username'});
 </script>
 </body>
 </html>
