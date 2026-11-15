@@ -176,6 +176,21 @@ function makeFetch() {
 
   alerts.length = 0; eng.testAlert('opp');
   assert.strictEqual(alerts[0].side, 'opp'); assert.strictEqual(alerts[0].player.name, 'Stefon Diggs');
+  // ESPN posted the text before tagging players: still caught from the text, then not duplicated once tagged
+  eng.players['8146'].espnId = '4569618'; eng.byEspn['4569618'] = eng.players['8146'];
+  const nyj = { id: 'nyj', name: 'BUF @ NYJ', teams: ['BUF', 'NYJ'] };
+  const untagged = { id: 'w1', type: { text: 'Pass Reception' }, text: '(Shotgun) G.Smith pass deep left to G.Wilson to BUF 36 for 33 yards (J.Hancock) [G.Rousseau].' };
+  const w = eng.evaluate(untagged, nyj);
+  assert.ok(w && w.type === 'BIG PLAY' && w.hero.name === 'Garrett Wilson', 'big play from text: ' + JSON.stringify(w));
+  assert.strictEqual(w.desc, '33 yd catch from G. Smith');
+  const tagged = Object.assign({}, untagged, { statYardage: 33, participants: [ath(15864, 'passer'), ath(4569618, 'receiver')] });
+  assert.strictEqual(eng.evaluate(tagged, nyj), null, 'no duplicate once ESPN tags it');
+  // incomplete pass / short catch from text: nothing
+  assert.strictEqual(eng.evaluate({ id: 'w2', type: { text: 'Pass Incompletion' }, text: '(Shotgun) G.Smith pass incomplete short left to G.Wilson.' }, nyj), null);
+  assert.strictEqual(eng.evaluate({ id: 'w3', type: { text: 'Pass Reception' }, text: 'G.Smith pass short middle to G.Wilson to NYJ 37 for 8 yards (T.Parker).' }, nyj), null);
+  // a play where he's not in the game's teams is ignored
+  assert.strictEqual(eng.evaluate({ id: 'w4', type: { text: 'Pass Reception' }, text: 'X.Y pass deep to G.Wilson for 40 yards' }, { id: 'z', name: 'KC @ ATL', teams: ['KC', 'ATL'] }), null);
+  // late-tagged play beyond the old 3-play window is still re-checked (window is 20)
   console.log('All engine tests passed ✔');
   console.log('Opponent alert payload:', JSON.stringify(o));
   console.log('Sample alert payload:', JSON.stringify(a0, null, 1));

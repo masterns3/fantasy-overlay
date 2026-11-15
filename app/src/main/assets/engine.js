@@ -272,7 +272,7 @@
         this.cursor[g.id] = count;
         return [];
       }
-      const from = Math.max(0, this.cursor[g.id] - 3);   // re-check last few plays (reviews, late TD flags)
+      const from = Math.max(0, this.cursor[g.id] - 20);  // re-check recent plays: ESPN often attaches players/yards a minute or two late
       const { count, items } = await this.fetchPlays(g, from);
       this.cursor[g.id] = count;
       return this.evaluateBoth(items, g, {});
@@ -286,9 +286,11 @@
       if (/penalty|kickoff|punt|timeout|end (of )?(period|quarter|half|game)|two-minute|coin toss|extra point|two-point/i.test(type)) return null;
       if (/no play/i.test(text)) return null;
 
-      const parts = (play.participants || []).map((p) => ({
+      let parts = (play.participants || []).map((p) => ({
         id: athleteId(p.athlete && (p.athlete.$ref || p.athlete.id)), type: p.type,
       })).filter((p) => p.id);
+      // ESPN sometimes posts the play text before tagging players: fall back to reading the text.
+      if (!parts.length && !opts.everyone) parts = this.partsFromText(text, g, opts.side === 'opp');
 
       const opp = opts.side === 'opp';
       let lookup;
@@ -304,9 +306,10 @@
       const mine = parts.filter((p) => /^(passer|receiver|rusher|scorer)$/.test(p.type) && lookup(p.id));
       if (!mine.length) return null;
 
-      const isTD = !!play.scoringPlay && /touchdown/i.test(type);
+      const isTD = (!!play.scoringPlay && /touchdown/i.test(type)) || (/TOUCHDOWN/.test(text) && !/NULLIFIED|REVERSED/i.test(text));
       if (isTD && /interception|fumble/i.test(type) && !mine.some((m) => m.type === 'scorer')) return null; // pick-six against your QB
-      const yds = Number(play.statYardage) || 0;
+      let yds = Number(play.statYardage) || 0;
+      if (!yds) { const m = /for (-?\d+) yards?/i.exec(text); if (m) yds = +m[1]; }
       const roles = {};
       mine.forEach((m) => { (roles[m.id] = roles[m.id] || new Set()).add(m.type); });
       if (opp && !isTD) return null;               // opponent: touchdowns only
@@ -345,6 +348,25 @@
       else desc = type;
 
       return { key, side: opp ? 'opp' : 'me', type: isTD ? 'TOUCHDOWN' : 'BIG PLAY', hero, desc, delta: r1(delta), game: g && g.name, playId: play.id };
+    }
+
+    // "J.Smith pass deep left to G.Wilson ... for 33 yards" -> [{id, type}] for watched players in this game
+    partsFromText(text, g, opp) {
+      const ids = opp ? (this.opp ? this.opp.starters : []) : this.watchedIds();
+      const teams = new Set((g && g.teams) || []);
+      const body = String(text || '').replace(/^\s*(\([^)]*\)\s*)+/, '');
+      const out = [];
+      ids.forEach((id) => {
+        const p = this.players[id];
+        if (!p || !p.espnId || !p.name || (teams.size && !teams.has(p.team))) return;
+        const first = p.name.trim()[0], last = p.last || p.name.split(' ').slice(-1)[0];
+        const ab = (first + '.' + last).replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\./g, '\\.\\s?');
+        const re = (pre) => new RegExp(pre + ab + "(?![A-Za-z])");
+        if (re('^').test(body) && /^\S+\s+pass\b/.test(body)) out.push({ id: p.espnId, type: 'passer' });
+        else if (re('\\bto\\s+').test(body) && /\bpass\b/.test(body)) out.push({ id: p.espnId, type: 'receiver' });
+        else if (re('^').test(body)) out.push({ id: p.espnId, type: 'rusher' });
+      });
+      return out;
     }
 
     evaluateBoth(items, g, opts) {
